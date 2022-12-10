@@ -1,4 +1,4 @@
 # svgHelpers
 Collection of svg javaScript helpers:
 
-test123
+Dependency. Jarek Foksa's path-data-polyfill!
