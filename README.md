@@ -1,2 +1,2 @@
 # svgHelpers
-Collection of svg javaScript helpers
+Collection of svg javaScript helpers:
