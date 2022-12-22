@@ -746,7 +746,7 @@ function setPathDataOpt(path, pathData, decimals=-1) {
     path.setAttribute("d", d);
 }
 
-function roundPathDataOpt(pathData, decimals=-1) {
+function roundPathData(pathData, decimals=-1) {
     pathData.forEach((com, c) => {
       if (decimals >= 0) {
         com.values.forEach(function (val, v) {
