@@ -72,14 +72,17 @@ path1.setPathData(pathDataAbsolute);
 
 ### 2. Convert path commands to "longhand" or reapply shorthand commands
 
+All Shorthand commands `V`, `H`, `S`, `Q` will be converted to their longhand counterparts  
+`L`, `C`, `Q`.
+
 #### pathData.shorthands.js 
-    <script src="https://cdn.jsdelivr.net/gh/herrstrietzel/svgHelpers@main/js/pathData.shorthands.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/herrstrietzel/svgHelpers@latest/js/pathData.shorthands.min.js"></script>
     
 ##### Arguments:
 * pathData
 * decimals (optional): round to floating point decimals (-1 disables rounding)
 
-##### Dependancy: pathData.relativeAbsolute.js 
+##### Dependancies: pathData.relativeAbsolute.js 
 
 #### All longhand commands
 
@@ -91,9 +94,49 @@ path.setPathData(pathDataLonghands);
 
 #### Apply shorthand commands
 
+Will try to apply shorthand commands - if applicable.
+
 ```js
 let pathData = path.getPathData();
 let pathDataShorthands = pathDataToShorthands(pathData);
 path.setPathData(pathDataShorthands);
 ```
+
+### 3. Parse `<path>` `d` attribute to pathData array 
+
+1. parseDtoPathData(d);  
+2. setPathDataOpt(path, pathData, decimals=-1);  
+3. roundPathData(pathData, decimals=-1)  
+
+```js
+// parse to pathData array
+let d = path.getAttribute('d');
+let pathData = parseDtoPathData(d);
+
+// set path `d` - apply rounding
+setPathDataOpt(path, pathData, 3);
+```
+
+#### Aguments
+* path element `d` attribute
+* normalize (optional): Boolean
+
+```js
+let d = path.getAttribute('d');
+let pathData = parseDtoPathData(d, true);
+```
+
+Normalize option converts all commands like the official `getPathData({normalize:true})`:  
+* all absolute
+* convert shorthands to longhand notation
+* convert quadratic `Q` and arc `A` commands to cubic `C`
+
+#### Dependancies: self-contained
+This script included helper functions from  
+* pathData.relativeAbsolute.js
+* pathData.shorthands.js
+
+#### pathData.parseAndConvert.js
+<script src="https://cdn.jsdelivr.net/gh/herrstrietzel/svgHelpers@latest/js/pathData.parseAndConvert.js"></script>
+
 
