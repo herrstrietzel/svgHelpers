@@ -136,6 +136,37 @@ function parseDtoPathData(d, normalize = false) {
 
 
 /**
+* normalize to all absolute, cubic, no shorthand
+*/
+function normalizePathData(pathData) {
+    let pathDataNorm = [];
+    pathData = pathDataToLonghands(pathData);
+    pathData.forEach((com, i) => {
+        let [type, values] = [com.type, com.values];
+        let comPrev = i > 0 ? pathData[i - 1] : pathData[i];
+        let [typePrev, valuesPrev] = [comPrev.type, comPrev.values];
+        let valuesPrevL = valuesPrev.length;
+        let p0 = { x: valuesPrev[valuesPrevL - 2], y: valuesPrev[valuesPrevL - 1] };
+        switch (type) {
+            case 'A':
+                let cubicArcs = pathDataArcToCubic(p0, values);
+                cubicArcs.forEach(cubicArc => {
+                    pathDataNorm.push(cubicArc);
+                })
+                break;
+            case 'Q':
+                pathDataNorm.push(pathDataQuadratic2Cubic(p0, values));
+                break;
+            default:
+                pathDataNorm.push(com);
+        }
+    });
+    return pathDataNorm;
+}
+
+
+
+/**
  * convert quadratic commands to cubic
  */
 function pathDataQuadratic2Cubic(previous, command) {
