@@ -137,6 +137,8 @@ This script included helper functions from
 * pathData.shorthands.js
 
 #### pathData.parseAndConvert.js
+```html
 <script src="https://cdn.jsdelivr.net/gh/herrstrietzel/svgHelpers@latest/js/pathData.parseAndConvert.js"></script>
+```
 
 
