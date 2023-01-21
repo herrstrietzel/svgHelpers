@@ -169,6 +169,7 @@ function parseDtoPathData(d, normalize = false) {
         .replace(/,/g, " ")
         .replace(/-/g, " -")
         .replace(/(\.)(\d+)(\.)(\d+)/g, "$1$2 $3$4")
+        .replace(/(\.)(\d+)(\.)(\d+)/g, "$1$2 $3$4")
         .replace(/( )(0)(\d+)/g, "$1 $2 $3")
         .replace(/([a-z])/gi, "|$1 ")
         .replace(/\s{2,}/g, " ")
