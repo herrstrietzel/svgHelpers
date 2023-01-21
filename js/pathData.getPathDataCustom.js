@@ -1,6 +1,6 @@
 
 /**
-* gustom pathData() and setPathData() methods
+* custom pathData() and setPathData() methods
 **/
 SVGGeometryElement.prototype.getPathDataCustom = function (options = { normalize: false }) {
     let pathData = [];
@@ -96,6 +96,7 @@ SVGGeometryElement.prototype.getPathDataCustom = function (options = { normalize
     return pathData;
 };
 
+
 SVGPathElement.prototype.setPathDataCustom = function (pathData, decimals = -1) {
     let d = "";
     pathData.forEach((com, c) => {
@@ -109,6 +110,21 @@ SVGPathElement.prototype.setPathDataCustom = function (pathData, decimals = -1) 
     d = d.replaceAll(",", " ").replaceAll(" -", "-");
     this.setAttribute("d", d);
 };
+
+
+/**
+ * wrapper for getPathData() and setPathData()
+ */
+if (!SVGPathElement.prototype.getPathData || !SVGPathElement.prototype.setPathData) {
+    SVGGeometryElement.prototype.getPathData = function (options = { normalize: false }) {
+        var pathData = this.getPathDataCustom(options);
+        return pathData;
+    };
+    SVGPathElement.prototype.setPathData = function (pathData, decimals = -1) {
+        this.setPathDataCustom(pathData);
+    };
+}
+
 
 SVGGeometryElement.prototype.convertPrimitiveToPath = function (normalize = false, decimals = -1) {
     let pathData = this.getPathDataCustom();
@@ -901,16 +917,45 @@ function pathDataToAbsolute(pathData, decimals = -1, unlink = false) {
     return pathData;
 }
 
+
+/**
+ * add optimizations like
+ * rounding
+ * relative and shorthand command
+ */
+function getDMin(pathData, decimals = 3) {
+    pathData = JSON.parse(JSON.stringify(pathData));
+
+    // convert  to shorthands
+    pathData = pathDataToShorthands(pathData);
+
+    // pre round for lower floating point precision
+    if (decimals === 0 || decimals === 1) {
+        pathData = roundPathData(pathData, decimals + 1)
+    }
+    // convert to relative
+    pathData = pathDataToRelative(pathData, decimals);
+
+    let d = pathData.map(com => {
+        return `${com.type}${com.values.join(" ")}`;
+    }).join(' ');
+
+    d = d
+        .replace(/( )([a-z])/gi, "$2")
+        .replaceAll(",", " ").replaceAll(" -", "-");
+    return d;
+}
+
+SVGPathElement.prototype.setPathDataMin = function (pathData, decimals = 3) {
+    let d = getDMin(pathData, decimals)
+    this.setAttribute("d", d);
+};
+
 function setPathDataOpt(path, pathData, decimals = -1) {
-    let d = "";
-    pathData.forEach((com, c) => {
-        if (decimals >= 0) {
-            com.values.forEach(function (val, v) {
-                pathData[c]["values"][v] = +val.toFixed(decimals);
-            });
-        }
-        d += `${com.type}${com.values.join(" ")}`;
-    });
+    pathData = roundPathData(pathData, decimals);
+    let d = pathData.map(com => {
+        return `${com.type}${com.values.join(" ")}`;
+    }).join(' ');
     d = d.replaceAll(",", " ").replaceAll(" -", "-");
     path.setAttribute("d", d);
 }
