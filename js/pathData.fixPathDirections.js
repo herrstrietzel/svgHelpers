@@ -1,3 +1,22 @@
+/**
+* This helper will check path directions in compound paths and change directions to avoid even/odd fill rule issues:
+* Inner (counter) shapes will get the opposite spin (clockwise or counterclockwise) according to the outer shape
+* Dependencies: path-data-polyfill by Jarek Foksa: 
+* https://github.com/jarek-foksa/path-data-polyfill 
+* or pathData.getPathDataCustom.js:
+* https://cdn.jsdelivr.net/gh/herrstrietzel/svgHelpers@latest/js/pathData.getPathDataCustom.js
+*/
+
+/**
+* example usage:
+*/
+/*
+let pathData = path.getPathData();
+pathData = autoFixPathDirections(pathData);
+path.setPathData(pathData);
+*/
+
+
 function autoFixPathDirections(pathData) {
   let pathDataArr = splitSubpaths(pathDataToLonghands(pathData));
   pathDataArr = sortSubpaths(pathDataArr);
