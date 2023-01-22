@@ -1,3 +1,18 @@
+/** 
+* Convert svg paths using the upcoming getPathData() method
+* which is expected to be natively supported by browsers
+* and the successors of the deprecated pathSegList() methods
+* 
+* Based on the svg working draft 
+* https://svgwg.org/specs/paths/#InterfaceSVGPathData
+* 
+* customized parser - based on Jarek Foksa's polyfill
+* https://github.com/jarek-foksa/path-data-polyfill
+* Usage via cdn:
+* CDN: https://cdn.jsdelivr.net/npm/path-data-polyfill@latest/path-data-polyfill.min.js
+* 
+*/
+
 
 /**
 * custom pathData() and setPathData() methods
@@ -114,10 +129,11 @@ SVGPathElement.prototype.setPathDataCustom = function (pathData, decimals = -1) 
 
 /**
  * wrapper for getPathData() and setPathData()
+ * use natively supported/previously polyfilled methods
  */
 if (!SVGPathElement.prototype.getPathData || !SVGPathElement.prototype.setPathData) {
     SVGGeometryElement.prototype.getPathData = function (options = { normalize: false }) {
-        var pathData = this.getPathDataCustom(options);
+        let pathData = this.getPathDataCustom(options);
         return pathData;
     };
     SVGPathElement.prototype.setPathData = function (pathData, decimals = -1) {
@@ -125,11 +141,17 @@ if (!SVGPathElement.prototype.getPathData || !SVGPathElement.prototype.setPathDa
     };
 }
 
-
-SVGGeometryElement.prototype.convertPrimitiveToPath = function (normalize = false, decimals = -1) {
+/**
+ * retrieve patData from primitives:
+ * <circle>, <ellipse>, <rect>, <polygon>, <polyline>, <line>, 
+ */
+SVGGeometryElement.prototype.convertPrimitiveToPath = function (options = {}) {
     let pathData = this.getPathDataCustom();
 
-    //get all attributes as object
+    // create path element
+    let path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+
+    // get all attributes as object
     const setAttributes = (el, attributes, exclude = []) => {
         for (key in attributes) {
             if (exclude.indexOf(key) === -1) {
@@ -148,7 +170,6 @@ SVGGeometryElement.prototype.convertPrimitiveToPath = function (normalize = fals
 
     let attributes = getAttributes(this);
 
-    let path = document.createElementNS("http://www.w3.org/2000/svg", "path");
     //exclude attributes not needed for paths
     let exclude = [
         "x",
@@ -166,11 +187,9 @@ SVGGeometryElement.prototype.convertPrimitiveToPath = function (normalize = fals
         "height",
         "width"
     ];
+    // copy attributes to path and set pathData
     setAttributes(path, attributes, exclude);
-    if (normalize === true) {
-        pathData = normalizePathData(pathData);
-    }
-    path.setPathDataCustom(pathData, decimals);
+    path.setPathDataOpt(pathData, options);
     this.replaceWith(path);
 }
 
@@ -234,10 +253,8 @@ function parseDtoPathData(d, normalize = false) {
                  * unless it adds relative linetos
                  * (facilitates d concatenating)
                  */
-                if (typeLc === "m") {
-                    if (i == 0) {
-                        type = "M";
-                    }
+                if (i === 0 ) {
+                    type = "M";
                 }
                 break;
             case "s":
@@ -357,19 +374,19 @@ function pathDataArcToCubic(p0, comValues, recursive = false) {
     let [r1, r2, angle, largeArcFlag, sweepFlag, x2, y2] = comValues;
     let [x1, y1] = [p0.x, p0.y];
 
-    var degToRad = function (degrees) {
+    const degToRad = degrees => {
         return (Math.PI * degrees) / 180;
     };
 
-    var rotate = function (x, y, angleRad) {
-        var X = x * Math.cos(angleRad) - y * Math.sin(angleRad);
-        var Y = x * Math.sin(angleRad) + y * Math.cos(angleRad);
+    const rotate = (x, y, angleRad) => {
+        let X = x * Math.cos(angleRad) - y * Math.sin(angleRad);
+        let Y = x * Math.sin(angleRad) + y * Math.cos(angleRad);
         return { x: X, y: Y };
     };
 
-    var angleRad = degToRad(angle);
-    var params = [];
-    var f1, f2, cx, cy;
+    let angleRad = degToRad(angle);
+    let params = [];
+    let x, y, f1, f2, cx, cy, h;
 
     if (recursive) {
         f1 = recursive[0];
@@ -378,17 +395,17 @@ function pathDataArcToCubic(p0, comValues, recursive = false) {
         cy = recursive[3];
     }
     else {
-        var p1 = rotate(x1, y1, -angleRad);
+        let p1 = rotate(x1, y1, -angleRad);
         x1 = p1.x;
         y1 = p1.y;
 
-        var p2 = rotate(x2, y2, -angleRad);
+        let p2 = rotate(x2, y2, -angleRad);
         x2 = p2.x;
         y2 = p2.y;
 
-        var x = (x1 - x2) / 2;
-        var y = (y1 - y2) / 2;
-        var h = (x * x) / (r1 * r1) + (y * y) / (r2 * r2);
+        x = (x1 - x2) / 2;
+        y = (y1 - y2) / 2;
+        h = (x * x) / (r1 * r1) + (y * y) / (r2 * r2);
 
         if (h > 1) {
             h = Math.sqrt(h);
@@ -396,26 +413,15 @@ function pathDataArcToCubic(p0, comValues, recursive = false) {
             r2 = h * r2;
         }
 
-        var sign;
-
-        if (largeArcFlag === sweepFlag) {
-            sign = -1;
-        }
-        else {
-            sign = 1;
-        }
-
-        var r1Pow = r1 * r1;
-        var r2Pow = r2 * r2;
-
-        var left = r1Pow * r2Pow - r1Pow * y * y - r2Pow * x * x;
-        var right = r1Pow * y * y + r2Pow * x * x;
-
-        var k = sign * Math.sqrt(Math.abs(left / right));
+        let sign = largeArcFlag === sweepFlag ? -1 : 1;
+        let r1Pow = r1 * r1;
+        let r2Pow = r2 * r2;
+        let left = r1Pow * r2Pow - r1Pow * y * y - r2Pow * x * x;
+        let right = r1Pow * y * y + r2Pow * x * x;
+        let k = sign * Math.sqrt(Math.abs(left / right));
 
         cx = k * r1 * y / r2 + (x1 + x2) / 2;
         cy = k * -r2 * x / r1 + (y1 + y2) / 2;
-
         f1 = Math.asin(parseFloat(((y1 - cy) / r2).toFixed(9)));
         f2 = Math.asin(parseFloat(((y2 - cy) / r2).toFixed(9)));
 
@@ -441,20 +447,16 @@ function pathDataArcToCubic(p0, comValues, recursive = false) {
         }
     }
 
-    var df = f2 - f1;
+    let df = f2 - f1;
 
     if (Math.abs(df) > (Math.PI * 120 / 180)) {
-        var f2old = f2;
-        var x2old = x2;
-        var y2old = y2;
+        let f2old = f2;
+        let x2old = x2;
+        let y2old = y2;
 
-        if (sweepFlag && f2 > f1) {
-            f2 = f1 + (Math.PI * 120 / 180) * (1);
-        }
-        else {
+        f2 = sweepFlag && f2 > f1 ?
+            f2 = f1 + (Math.PI * 120 / 180) * (1) :
             f2 = f1 + (Math.PI * 120 / 180) * (-1);
-        }
-
         x2 = cx + r1 * Math.cos(f2);
         y2 = cy + r2 * Math.sin(f2);
         params = pathDataArcToCubic([x2, y2], [r1, r2, angle, 0, sweepFlag, x2old, y2old], [f2, f2old, cx, cy]);
@@ -462,18 +464,18 @@ function pathDataArcToCubic(p0, comValues, recursive = false) {
 
     df = f2 - f1;
 
-    var c1 = Math.cos(f1);
-    var s1 = Math.sin(f1);
-    var c2 = Math.cos(f2);
-    var s2 = Math.sin(f2);
-    var t = Math.tan(df / 4);
-    var hx = 4 / 3 * r1 * t;
-    var hy = 4 / 3 * r2 * t;
+    let c1 = Math.cos(f1);
+    let s1 = Math.sin(f1);
+    let c2 = Math.cos(f2);
+    let s2 = Math.sin(f2);
+    let t = Math.tan(df / 4);
+    let hx = 4 / 3 * r1 * t;
+    let hy = 4 / 3 * r2 * t;
 
-    var m1 = [x1, y1];
-    var m2 = [x1 + hx * s1, y1 - hy * c1];
-    var m3 = [x2 + hx * s2, y2 - hy * c2];
-    var m4 = [x2, y2];
+    let m1 = [x1, y1];
+    let m2 = [x1 + hx * s1, y1 - hy * c1];
+    let m3 = [x2 + hx * s2, y2 - hy * c2];
+    let m4 = [x2, y2];
 
     m2[0] = 2 * m1[0] - m2[0];
     m2[1] = 2 * m1[1] - m2[1];
@@ -484,14 +486,12 @@ function pathDataArcToCubic(p0, comValues, recursive = false) {
     else {
         params = [m2, m3, m4].concat(params);
         let commands = [];
-
         for (var i = 0; i < params.length; i += 3) {
             r1 = rotate(params[i][0], params[i][1], angleRad);
             r2 = rotate(params[i + 1][0], params[i + 1][1], angleRad);
             r3 = rotate(params[i + 2][0], params[i + 2][1], angleRad);
             commands.push({ type: 'C', values: [r1.x, r1.y, r2.x, r2.y, r3.x, r3.y] });
         }
-
         return commands;
     }
 };
@@ -503,8 +503,8 @@ function pathDataArcToCubic(p0, comValues, recursive = false) {
  * H, V, S, T => L, L, C, Q
  * reversed method: pathDataToShorthands()
  */
-function pathDataToLonghands(pathData, decimals = -1) {
-    pathData = pathDataToAbsolute(pathData, decimals);
+function pathDataToLonghands(pathData) {
+    pathData = pathDataToAbsolute(pathData);
     let pathDataLonghand = [];
     let comPrev = {
         type: "M",
@@ -520,7 +520,7 @@ function pathDataToLonghands(pathData, decimals = -1) {
         let valuesPrev = comPrev.values;
         let valuesPrevL = valuesPrev.length;
         let [x, y] = [values[valuesL - 2], values[valuesL - 1]];
-        let cp1X, cp1Y, cp2X, cp2Y;
+        let cp1X, cp1Y, cpN1X, cpN1Y, cpN2X, cpN2Y, cp2X, cp2Y;
         let [prevX, prevY] = [
             valuesPrev[valuesPrevL - 2],
             valuesPrev[valuesPrevL - 1]
@@ -590,7 +590,7 @@ function pathDataToLonghands(pathData, decimals = -1) {
  * reversed method: pathDataToLonghands()
  */
 
-function pathDataToShorthands(pathData, decimals = -1) {
+function pathDataToShorthands(pathData) {
     pathData = pathDataToAbsolute(pathData);
     let comShort = {
         type: "M",
@@ -611,7 +611,7 @@ function pathDataToShorthands(pathData, decimals = -1) {
             valuesPrev[valuesPrevL - 2],
             valuesPrev[valuesPrevL - 1]
         ];
-        let val0R, cpN1XR, val1R, cpN1YR, prevXR, prevYR;
+        let val0R, cpN1XR, val1R, cpN1YR, cpN1X, cpN1Y, cpN2X, cpN2Y, prevXR, prevYR;
 
         switch (type) {
             case "L":
@@ -658,7 +658,7 @@ function pathDataToShorthands(pathData, decimals = -1) {
                     values[1],
                     cpN1Y
                 ].map((val) => {
-                    return +(val * 1).toFixed(1);
+                    return +(val).toFixed(1);
                 });
 
                 if (val0R == cpN1XR && val1R == cpN1YR) {
@@ -721,41 +721,15 @@ function pathDataToShorthands(pathData, decimals = -1) {
 
 
 /**
- * Convert svg paths using the upcoming getPathData() method
- * which is expected to be natively supported by browsers
- * and the successors of the deprecated pathSegList() methods
- * 
- * Based on the svg working draft 
- * https://svgwg.org/specs/paths/#InterfaceSVGPathData
- * 
- * Dependency: 
- * Use Jarek Foksa's polyfill
- * https://github.com/jarek-foksa/path-data-polyfill
- * Usage via cdn:
- * CDN: https://cdn.jsdelivr.net/npm/path-data-polyfill@latest/path-data-polyfill.min.js
- * 
- * Svg coordinate calculation:
- * This is just a dull port of Dmitry Baranovskiy's 
+ * This is just a port of Dmitry Baranovskiy's 
  * pathToRelative/Absolute methods used in snap.svg
  * https://github.com/adobe-webplatform/Snap.svg/
  * 
  * Demo: https://codepen.io/herrstrietzel/pen/poVKbgL
  */
 
-/**
- * example usage: 
-let svg = document.querySelector('svg');
-let path = svg.querySelector('path');
-let pathData = path.getPathData();
-// 2nd argument defines optional rounding: -1 == no rounding; 2 == round to 2 decimals
-let pathDataRel = pathDataToRelative(pathData, 3);
-path.setPathData(pathDataRel);
-*/
-
 // convert to relative commands
-function pathDataToRelative(pathData, decimals = -1, unlink = false) {
-    // remove object reference
-    pathData = unlink ? JSON.parse(JSON.stringify(pathData)) : pathData;
+function pathDataToRelative(pathData, decimals = -1) {
 
     let M = pathData[0].values;
     let x = M[0],
@@ -818,25 +792,15 @@ function pathDataToRelative(pathData, decimals = -1, unlink = false) {
                 x += values[vLen - 2];
                 y += values[vLen - 1];
         }
-
-        // round coordinates
-        if (decimals >= 0) {
-            cmd.values = values.map((val) => {
-                return +val.toFixed(decimals);
-            });
-        }
     }
-    // round M (starting point)
+    // round coordinates
     if (decimals >= 0) {
-        [M[0], M[1]] = [+M[0].toFixed(decimals), +M[1].toFixed(decimals)];
+        pathData = roundPathData(pathData, decimals);
     }
     return pathData;
 }
 
-function pathDataToAbsolute(pathData, decimals = -1, unlink = false) {
-    // remove object reference
-    pathData = unlink ? JSON.parse(JSON.stringify(pathData)) : pathData;
-
+function pathDataToAbsolute(pathData, decimals = -1) {
     let M = pathData[0].values;
     let x = M[0],
         y = M[1],
@@ -903,16 +867,10 @@ function pathDataToAbsolute(pathData, decimals = -1, unlink = false) {
                 y = values[vLen - 1];
         }
 
-        // round coordinates
-        if (decimals >= 0) {
-            cmd.values = values.map((val) => {
-                return +val.toFixed(decimals);
-            });
-        }
     }
-    // round M (starting point)
+    // round coordinates
     if (decimals >= 0) {
-        [M[0], M[1]] = [+M[0].toFixed(decimals), +M[1].toFixed(decimals)];
+        pathData = roundPathData(pathData, decimals);
     }
     return pathData;
 }
@@ -923,48 +881,76 @@ function pathDataToAbsolute(pathData, decimals = -1, unlink = false) {
  * rounding
  * relative and shorthand command
  */
-function getDMin(pathData, decimals = 3) {
-    pathData = JSON.parse(JSON.stringify(pathData));
-
+function getDopt(pathData, options = {}) {
     // convert  to shorthands
-    pathData = pathDataToShorthands(pathData);
-
-    // pre round for lower floating point precision
-    if (decimals === 0 || decimals === 1) {
-        pathData = roundPathData(pathData, decimals + 1)
-    }
-    // convert to relative
-    pathData = pathDataToRelative(pathData, decimals);
-
+    pathData = getPathDataOpt(pathData, options);
     let d = pathData.map(com => {
-        return `${com.type}${com.values.join(" ")}`;
-    }).join(' ');
-
-    d = d
-        .replace(/( )([a-z])/gi, "$2")
-        .replaceAll(",", " ").replaceAll(" -", "-");
+        return `${com.type}${com.values.join(' ')}`;
+    }).join('');
+    // optimize whitespace and delimiters
+    d = d.replaceAll(",", " ").replaceAll(" -", "-");
     return d;
 }
 
-SVGPathElement.prototype.setPathDataMin = function (pathData, decimals = 3) {
-    let d = getDMin(pathData, decimals)
+/**
+ * get optimized/converted
+ * pathData array
+ */
+function getPathDataOpt(pathData, options = {}) {
+    // clone pathData array to prevent overwriting
+    pathData = JSON.parse(JSON.stringify(pathData));
+
+    // set defaults
+    options = {
+        normalize: options.normalize ? options.normalize : false,
+        arcsToCubic: options.arcsToCubic ? options.arcsToCubic : false,
+        absolute: options.absolute ? options.absolute : false,
+        relative: options.relative ? options.relative : true,
+        longhands: options.longhands ? options.longhands : false,
+        shorthands: options.shorthands ? options.shorthands : true,
+        decimals: (options.decimals || options.decimals === 0) ? options.decimals : 3
+    };
+    let { normalize, arcsToCubic, absolute, relative, longhands, shorthands, decimals } = options;
+
+    // normalize: quadratic to cubic, arcs to curvetos, all absolute
+    if (normalize) {
+        pathData = roundPathData(normalizePathData(pathData), decimals);
+    } else {
+        // arcsToCubic
+        if (arcsToCubic) {
+            pathData = normalizePathData(pathData);
+        }
+        // convert  to shorthands
+        pathData = shorthands && !longhands ?
+            pathDataToShorthands(pathData) :
+            (longhands ? pathDataToLonghands(pathData) : pathData);
+
+        // convert to relative and round
+        pathData = !absolute ? pathDataToRelative(pathData, decimals) : pathDataToAbsolute(pathData, decimals);
+    }
+    return pathData;
+}
+
+// pathData to d string without optimizations
+function pathDataToD(pathData) {
+    let d = pathData.map(com => {
+        return `${com.type}${com.values.join(' ')}`;
+    }).join('');
+    return d;
+}
+
+// set pathData with optimizations
+SVGPathElement.prototype.setPathDataOpt = function (pathData, options = {}) {
+    let d = getDopt(pathData, options)
     this.setAttribute("d", d);
 };
 
-function setPathDataOpt(path, pathData, decimals = -1) {
-    pathData = roundPathData(pathData, decimals);
-    let d = pathData.map(com => {
-        return `${com.type}${com.values.join(" ")}`;
-    }).join(' ');
-    d = d.replaceAll(",", " ").replaceAll(" -", "-");
-    path.setAttribute("d", d);
-}
 
 function roundPathData(pathData, decimals = -1) {
     pathData.forEach((com, c) => {
         if (decimals >= 0) {
-            com.values.forEach(function (val, v) {
-                pathData[c]["values"][v] = +val.toFixed(decimals);
+            com.values.forEach((val, v) => {
+                pathData[c].values[v] = +val.toFixed(decimals);
             });
         }
     });
