@@ -17,7 +17,7 @@
 /**
 * custom pathData() and setPathData() methods
 **/
-SVGGeometryElement.prototype.getPathDataCustom = function (options = { normalize: false }) {
+SVGGeometryElement.prototype.getPathDataOpt = function (options = {}, conversion=true) {
     let pathData = [];
     let type = this.nodeName;
     let d, x, y, width, height, r, rx, ry, cx, cy;
@@ -104,26 +104,26 @@ SVGGeometryElement.prototype.getPathDataCustom = function (options = { normalize
             break;
     }
 
-    if (options && options.normalize === true) {
-        pathData = normalizePathData(pathData);
+
+    /**
+     * set defaults 
+     * for processing you usually need 
+     * absolute and longhand commands
+     */ 
+    options = {
+        normalize: options.normalize ? options.normalize : false,
+        arcsToCubic: options.arcsToCubic ? options.arcsToCubic : false,
+        absolute: options.absolute ? options.absolute : true,
+        relative: options.relative ? options.relative : false,
+        longhands: options.longhands ? options.longhands : true,
+        shorthands: options.shorthands ? options.shorthands : false,
+        decimals: (options.decimals || options.decimals === 0) ? options.decimals : 9
+    };
+
+    if ( conversion || options.normalize ) {
+        pathData = convertPathData(pathData, options);
     }
-
     return pathData;
-};
-
-
-SVGPathElement.prototype.setPathDataCustom = function (pathData, decimals = -1) {
-    let d = "";
-    pathData.forEach((com, c) => {
-        if (decimals >= 0) {
-            com.values.forEach(function (val, v) {
-                pathData[c]["values"][v] = +val.toFixed(decimals);
-            });
-        }
-        d += `${com.type}${com.values.join(" ")}`;
-    });
-    d = d.replaceAll(",", " ").replaceAll(" -", "-");
-    this.setAttribute("d", d);
 };
 
 
@@ -132,12 +132,12 @@ SVGPathElement.prototype.setPathDataCustom = function (pathData, decimals = -1) 
  * use natively supported/previously polyfilled methods
  */
 if (!SVGPathElement.prototype.getPathData || !SVGPathElement.prototype.setPathData) {
-    SVGGeometryElement.prototype.getPathData = function (options = { normalize: false }) {
-        let pathData = this.getPathDataCustom(options);
+    SVGGeometryElement.prototype.getPathData = function (options = {}) {
+        let pathData = this.getPathDataOpt(options, false);
         return pathData;
     };
-    SVGPathElement.prototype.setPathData = function (pathData, decimals = -1) {
-        this.setPathDataCustom(pathData);
+    SVGPathElement.prototype.setPathData = function (pathData, conversion=false) {
+        this.setPathDataOpt(pathData, {relative:false, shorthands:false, decimals:12}, conversion);
     };
 }
 
@@ -146,7 +146,7 @@ if (!SVGPathElement.prototype.getPathData || !SVGPathElement.prototype.setPathDa
  * <circle>, <ellipse>, <rect>, <polygon>, <polyline>, <line>, 
  */
 SVGGeometryElement.prototype.convertPrimitiveToPath = function (options = {}) {
-    let pathData = this.getPathDataCustom();
+    let pathData = this.getPathDataOpt();
 
     // create path element
     let path = document.createElementNS("http://www.w3.org/2000/svg", "path");
@@ -199,16 +199,18 @@ SVGGeometryElement.prototype.convertPrimitiveToPath = function (options = {}) {
 **/
 function parseDtoPathData(d, normalize = false) {
     // sanitize d string
-    let commands = d
+    let commandsString = d
         .replace(/[\n\r\t]/g, "")
         .replace(/,/g, " ")
-        .replace(/-/g, " -")
+        .replace(/(\d+)(\-)/g, "$1 $2")
         .replace(/(\.)(\d+)(\.)(\d+)/g, "$1$2 $3$4")
         .replace(/(\.)(\d+)(\.)(\d+)/g, "$1$2 $3$4")
         .replace(/( )(0)(\d+)/g, "$1 $2 $3")
-        .replace(/([a-z])/gi, "|$1 ")
+        .replace(/([mlcsqtahvz])/gi, "|$1 ")
         .replace(/\s{2,}/g, " ")
-        .trim()
+        .trim();
+
+    let commands = commandsString
         .split("|")
         .filter(Boolean)
         .map((val) => {
@@ -223,8 +225,10 @@ function parseDtoPathData(d, normalize = false) {
         let type = com.shift();
         let typeLc = type.toLowerCase();
         let isRelative = type === typeLc ? true : false;
+
+        // convert to numbers
         let values = com.map((val) => {
-            return parseFloat(val);
+            return +(val);
         });
 
         // analyze repeated (shorthanded) commands
@@ -883,7 +887,7 @@ function pathDataToAbsolute(pathData, decimals = -1) {
  */
 function getDopt(pathData, options = {}) {
     // convert  to shorthands
-    pathData = getPathDataOpt(pathData, options);
+    pathData = convertPathData(pathData, options);
     let d = pathData.map(com => {
         return `${com.type}${com.values.join(' ')}`;
     }).join('');
@@ -896,7 +900,7 @@ function getDopt(pathData, options = {}) {
  * get optimized/converted
  * pathData array
  */
-function getPathDataOpt(pathData, options = {}) {
+function convertPathData(pathData, options = {}) {
     // clone pathData array to prevent overwriting
     pathData = JSON.parse(JSON.stringify(pathData));
 
@@ -926,7 +930,7 @@ function getPathDataOpt(pathData, options = {}) {
             (longhands ? pathDataToLonghands(pathData) : pathData);
 
         // convert to relative and round
-        pathData = !absolute ? pathDataToRelative(pathData, decimals) : pathDataToAbsolute(pathData, decimals);
+        pathData = (!absolute && relative) ? pathDataToRelative(pathData, decimals) : pathDataToAbsolute(pathData, decimals);
     }
     return pathData;
 }
@@ -940,8 +944,8 @@ function pathDataToD(pathData) {
 }
 
 // set pathData with optimizations
-SVGPathElement.prototype.setPathDataOpt = function (pathData, options = {}) {
-    let d = getDopt(pathData, options)
+SVGPathElement.prototype.setPathDataOpt = function (pathData, options = {}, conversion=true) {
+    let d =  conversion ? getDopt(pathData, options): pathDataToD(pathData);
     this.setAttribute("d", d);
 };
 
