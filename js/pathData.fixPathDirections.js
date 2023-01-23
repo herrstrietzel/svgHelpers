@@ -452,27 +452,6 @@ function shiftSvgStartingPoint(pathData, offset) {
   return pathData;
 }
 
-
-
-function getDOpt(pathData, decimals) {
-  pathData = JSON.parse(JSON.stringify(pathData));
-  let d = "";
-  pathData.forEach((com, c) => {
-    let type = com["type"];
-    let values = com["values"];
-
-    if (decimals >= 0) {
-      values.forEach(function (val, v) {
-        pathData[c]["values"][v] = +val.toFixed(decimals);
-      });
-    }
-    d += `${type}${values.join(" ")}`;
-  });
-  d = d.replaceAll(",", " ").replaceAll(" -", "-");
-  return d;
-}
-
-
 /**
  * split compound paths into sub path data array
  */
