@@ -566,3 +566,52 @@ function getPointAtQuadraticSegmentLength(p0, cp1, p, t = 0.5) {
     y: t1 * t1 * p0.y + 2 * t1 * t * cp1.y + t ** 2 * p.y
   }
 }
+
+
+function analyzePathData(pathData) {
+
+    let minDec = 0;
+    let hasShorthand = false;
+    let hasRelative = false;
+    let subPathCount = 0;
+    pathData.forEach((com, i) => {
+      let type = com.type;
+      let typeA = type.toUpperCase();
+      if (type != typeA) {
+        hasRelative = true;
+      }
+  
+      // test shorthands
+      const regex = new RegExp("[H|V|S|T]", "gi");
+      if (regex.test(typeA)) {
+        hasShorthand = true;
+      }
+  
+      //test subpaths
+      if (type.toLowerCase() === 'm' && i > 0) {
+        subPathCount++
+      }
+  
+      let values = com.values;
+      values.forEach((val) => {
+        let numArr = (+val.toFixed(8)).toString().split(".").filter(Boolean);
+        if (numArr[1]) {
+          let decs = numArr[1].length;
+          if (decs > minDec) {
+            minDec = decs;
+          }
+        }
+      });
+    });
+  
+    let comLast = pathData[pathData.length - 1].type.toLowerCase();
+    let isClosed = comLast === 'z' ? true : false;
+  
+    return {
+      minDec: minDec,
+      hasShorthand: hasShorthand,
+      hasRelative: hasRelative,
+      closed: isClosed,
+      subPathCount: subPathCount
+    };
+  }
