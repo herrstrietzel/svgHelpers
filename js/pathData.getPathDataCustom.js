@@ -13,11 +13,10 @@
 * 
 */
 
-
 /**
 * custom pathData() and setPathData() methods
 **/
-SVGGeometryElement.prototype.getPathDataOpt = function (options = {}, conversion=true) {
+SVGGeometryElement.prototype.getPathDataOpt = function (options = {}, conversion = true) {
     let pathData = [];
     let type = this.nodeName;
     let d, x, y, width, height, r, rx, ry, cx, cy;
@@ -109,7 +108,7 @@ SVGGeometryElement.prototype.getPathDataOpt = function (options = {}, conversion
      * set defaults 
      * for processing you usually need 
      * absolute and longhand commands
-     */ 
+     */
     options = {
         normalize: options.normalize ? options.normalize : false,
         arcsToCubic: options.arcsToCubic ? options.arcsToCubic : false,
@@ -120,7 +119,7 @@ SVGGeometryElement.prototype.getPathDataOpt = function (options = {}, conversion
         decimals: (options.decimals || options.decimals === 0) ? options.decimals : 9
     };
 
-    if ( conversion || options.normalize ) {
+    if (conversion || options.normalize) {
         pathData = convertPathData(pathData, options);
     }
     return pathData;
@@ -136,8 +135,8 @@ if (!SVGPathElement.prototype.getPathData || !SVGPathElement.prototype.setPathDa
         let pathData = this.getPathDataOpt(options, false);
         return pathData;
     };
-    SVGPathElement.prototype.setPathData = function (pathData, conversion=false) {
-        this.setPathDataOpt(pathData, {relative:false, shorthands:false, decimals:12}, conversion);
+    SVGPathElement.prototype.setPathData = function (pathData, conversion = false) {
+        this.setPathDataOpt(pathData, { relative: false, shorthands: false, decimals: 12 }, conversion);
     };
 }
 
@@ -200,14 +199,22 @@ SVGGeometryElement.prototype.convertPrimitiveToPath = function (options = {}) {
 function parseDtoPathData(d, normalize = false) {
     // sanitize d string
     let commandsString = d
+        // remove new lines and tabs
         .replace(/[\n\r\t]/g, "")
+        // replace comma with space
         .replace(/,/g, " ")
+        // add space before minus sign
         .replace(/(\d+)(\-)/g, "$1 $2")
+        // decompose multiple decimal delimiters like 0.5.5 => 0.5 0.5
         .replace(/(\.)(\d+)(\.)(\d+)/g, "$1$2 $3$4")
         .replace(/(\.)(\d+)(\.)(\d+)/g, "$1$2 $3$4")
+        // split multiple zero valuues like 0 05 => 0 0 5
         .replace(/( )(0)(\d+)/g, "$1 $2 $3")
+        // add space between all valid command letters and values - excludes scientific e notation
         .replace(/([mlcsqtahvz])/gi, "|$1 ")
+        // remove duplicate whitespace
         .replace(/\s{2,}/g, " ")
+        // remove whitespace from right and left
         .trim();
 
     let commands = commandsString
@@ -257,7 +264,7 @@ function parseDtoPathData(d, normalize = false) {
                  * unless it adds relative linetos
                  * (facilitates d concatenating)
                  */
-                if (i === 0 ) {
+                if (i === 0) {
                     type = "M";
                 }
                 break;
@@ -944,8 +951,8 @@ function pathDataToD(pathData) {
 }
 
 // set pathData with optimizations
-SVGPathElement.prototype.setPathDataOpt = function (pathData, options = {}, conversion=true) {
-    let d =  conversion ? getDopt(pathData, options): pathDataToD(pathData);
+SVGPathElement.prototype.setPathDataOpt = function (pathData, options = {}, conversion = true) {
+    let d = conversion ? getDopt(pathData, options) : pathDataToD(pathData);
     this.setAttribute("d", d);
 };
 
