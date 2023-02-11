@@ -2,10 +2,43 @@
  * includes pathData.measureAndLabel.js
  */
 
+function pathDataToCubic(pathData) {
+    pathData = pathDataToLonghands(pathData);
+
+    let pathDataL = pathData.length;
+    for (let i = 1; i < pathDataL; i++) {
+        let com = pathData[i];
+        let { type, values } = com;
+        let comPrev = pathData[i - 1];
+        let valuesPrev = comPrev.values;
+        let valuesPrevL = valuesPrev.length;
+        let valuesL = values.length;
+        let p0 = { x: valuesPrev[valuesPrevL - 2], y: valuesPrev[valuesPrevL - 1] };
+        let p = { x: values[valuesL - 2], y: values[valuesL - 1] };
+
+        let cp1Q = { x: values[0], y: values[1] };
+        if (type === 'Q') {
+            let cp1 = {
+                x: p0.x + 2 / 3 * (cp1Q.x - p0.x),
+                y: p0.y + 2 / 3 * (cp1Q.y - p0.y)
+            }
+
+            let cp2 = {
+                x: p.x + 2 / 3 * (cp1Q.x - p.x),
+                y: p.y + 2 / 3 * (cp1Q.y - p.y)
+            }
+            pathData[i] = { type: "C", values: [cp1.x, cp1.y, cp2.x, cp2.y, p.x, p.y] };
+        }
+    }
+    return pathData;
+}
+
+
 function pathDataToQuadratic(pathData, precision = 1) {
+    pathData = pathDataToLonghands(pathData);
     let pathDataL = pathData.length;
 
-    for (let i = 1; i > -1 && i < pathDataL && i < 500; i++) {
+    for (let i = 1; i < pathDataL; i++) {
         let com = pathData[i];
         let { type, values } = com;
         let comPrev = pathData[i - 1];
