@@ -29,11 +29,11 @@ function getAngle(p1, p2) {
 }
 
 // get angle between 3 points helper
-function getAngleABC(B, A, C) {
-    let AB = Math.sqrt(Math.pow(B.x - A.x, 2) + Math.pow(B.y - A.y, 2));
-    let BC = Math.sqrt(Math.pow(B.x - C.x, 2) + Math.pow(B.y - C.y, 2));
-    let AC = Math.sqrt(Math.pow(C.x - A.x, 2) + Math.pow(C.y - A.y, 2));
-    let angle = Math.acos((BC * BC + AB * AB - AC * AC) / (2 * BC * AB)) * 180 / Math.PI;
+function getAngleABC(A, B, C) {
+    let BA = Math.sqrt(Math.pow(A.x - B.x, 2) + Math.pow(A.y - B.y, 2));
+    let AC = Math.sqrt(Math.pow(A.x - C.x, 2) + Math.pow(A.y - C.y, 2));
+    let BC = Math.sqrt(Math.pow(C.x - B.x, 2) + Math.pow(C.y - B.y, 2));
+    let angle = Math.acos((AC * AC + BA * BA - BC * BC) / (2 * AC * BA)) * 180 / Math.PI;
     return angle;
 }
 
@@ -194,3 +194,67 @@ function samePoint(p1, p2, tolerance = 0.2) {
     return isSame
 }
 
+
+/**
+ * add readable command point data 
+ * to pathData command objects
+ */
+function pathDataToVerbose(pathData) {
+    pathData = pathDataToLonghands(pathData);
+    let pathDataVerbose = [];
+    let pathDataL = pathData.length;
+    let closed = pathData[pathDataL - 1].type === 'Z' ? true : false;
+    pathData.forEach((com, i) => {
+        let {
+            type,
+            values
+        } = com;
+        let typeLc = type.toLowerCase();
+        let valuesL = values.length;
+        let comPrev = pathData[i - 1] ? pathData[i - 1] : false;
+        let comPrevValues = comPrev ? comPrev.values : [];
+        let comPrevValuesL = comPrevValues.length;
+        let p = valuesL ? {
+            x: values[valuesL - 2],
+            y: values[valuesL - 1]
+        } : (i === pathData.length - 1 && closed ? pathData[0].values : false);
+        let comObj = {
+            type: type,
+            values: values,
+            p: p
+        }
+        if (comPrevValuesL) {
+            comObj.pPrev = {
+                x: comPrevValues[comPrevValuesL - 2],
+                y: comPrevValues[comPrevValuesL - 1]
+            }
+        }
+        switch (typeLc) {
+            case 'q':
+                comObj.cp1 = {
+                    x: values[valuesL - 4],
+                    y: values[valuesL - 3]
+                }
+                break;
+            case 'c':
+                comObj.cp1 = {
+                    x: values[valuesL - 6],
+                    y: values[valuesL - 5]
+                }
+                comObj.cp2 = {
+                    x: values[valuesL - 4],
+                    y: values[valuesL - 3]
+                }
+                break;
+            case 'a':
+                comObj.rx = values[0]
+                comObj.ry = values[1]
+                comObj.rotation = values[2]
+                comObj.largeArcFlag = values[3]
+                comObj.sweepFlag = values[4]
+                break;
+        }
+        pathDataVerbose.push(comObj);
+    });
+    return pathDataVerbose;
+}
