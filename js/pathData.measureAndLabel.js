@@ -29,12 +29,59 @@ function getAngle(p1, p2) {
 }
 
 // get angle between 3 points helper
-function getAngleABC(A, B, C) {
+function getAngleABC(B, A, C) {
     let AB = Math.sqrt(Math.pow(B.x - A.x, 2) + Math.pow(B.y - A.y, 2));
     let BC = Math.sqrt(Math.pow(B.x - C.x, 2) + Math.pow(B.y - C.y, 2));
     let AC = Math.sqrt(Math.pow(C.x - A.x, 2) + Math.pow(C.y - A.y, 2));
-    return Math.acos((BC * BC + AB * AB - AC * AC) / (2 * BC * AB));
+    let angle = Math.acos((BC * BC + AB * AB - AC * AC) / (2 * BC * AB)) * 180 / Math.PI;
+    return angle;
 }
+
+/**
+ * based on:  Justin C. Round's 
+ * http://jsfiddle.net/justin_c_rounds/Gd2S2/light/
+ */
+
+function checkLineIntersection(p1, p2, p3, p4, exact = true) {
+    // if the lines intersect, the result contains the x and y of the intersection (treating the lines as infinite) and booleans for whether line segment 1 or line segment 2 contain the point
+    let denominator, a, b, numerator1, numerator2;
+
+    let intersectionPoint = {}
+
+    denominator = ((p4.y - p3.y) * (p2.x - p1.x)) - ((p4.x - p3.x) * (p2.y - p1.y));
+    if (denominator == 0) {
+        return false;
+    }
+    a = p1.y - p3.y;
+    b = p1.x - p3.x;
+    numerator1 = ((p4.x - p3.x) * a) - ((p4.y - p3.y) * b);
+    numerator2 = ((p2.x - p1.x) * a) - ((p2.y - p1.y) * b);
+
+    a = numerator1 / denominator;
+    b = numerator2 / denominator;
+
+    // if we cast these lines infinitely in both directions, they intersect here:
+    intersectionPoint = {
+        x: p1.x + (a * (p2.x - p1.x)),
+        y: p1.y + (a * (p2.y - p1.y))
+    }
+
+    let intersection = false;
+    // if line1 is a segment and line2 is infinite, they intersect if:
+    if ((a > 0 && a < 1) && (b > 0 && b < 1)) {
+        intersection = true;
+        //console.log('line inters');
+    }
+
+    if (exact && !intersection) {
+        //console.log('no line inters');
+        return false;
+    }
+
+
+    // if line1 and line2 are segments, they intersect if both of the above are true
+    return intersectionPoint;
+};
 
 
 /**
@@ -128,3 +175,22 @@ function renderPolyLine(svg, points, stroke = "green", strokeWidth = "0.5%") {
     polygon.setAttribute("fill", "none");
     svg.appendChild(polygon);
 }
+
+
+
+/**
+ * check if points are congruent
+ */
+function samePoint(p1, p2, tolerance = 0.2) {
+    let isSame = false;
+    let diffX = Math.abs(p1.x - p2.x);
+    let diffY = Math.abs(p1.y - p2.y);
+    let diff = (diffX + diffY) / 2;
+    if (
+        diff < tolerance
+    ) {
+        isSame = true;
+    }
+    return isSame
+}
+
