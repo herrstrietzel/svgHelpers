@@ -401,6 +401,7 @@ function fieldSorter(fields) {
  * shift starting point
  */
 function shiftSvgStartingPoint(pathData, offset) {
+  pathData = addClosePathLineto(pathData);
   let pathDataL = pathData.length;
   let newStartIndex = 0;
   if (offset == 0) {
