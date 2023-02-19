@@ -462,7 +462,7 @@ function shiftSvgStartingPoint(pathData, offset) {
    * just reverse
    */
   else {
-    pathData = reversePathData(pathData);
+    //pathData = reversePathData(pathData);
   }
 
   return pathData;
@@ -498,25 +498,35 @@ function addClosePathLineto(pathData) {
   let pathDataL = pathData.length;
   let closed = pathData[pathDataL - 1]["type"] == "Z" ? true : false;
 
-  let M = pathData[0];
-  let [x0, y0] = [M.values[0], M.values[1]];
-  let lastCom = closed ? pathData[pathDataL - 2] : pathData[pathDataL - 1];
-  let lastComL = lastCom.values.length;
-  let [xE, yE] = [lastCom.values[lastComL - 2], lastCom.values[lastComL - 1]];
-  if (closed && (x0 != xE || y0 != yE)) {
-    //console.log('add final lineto')
-    pathData.pop();
-    pathData.push(
-      {
-        type: "L",
-        values: [x0, y0]
-      },
-      {
-        type: "Z",
-        values: []
-      }
-    );
+  if(closed){
+    let M = pathData[0];
+    let [x0, y0] = [M.values[0], M.values[1]];
+    let lastCom = closed ? pathData[pathDataL - 2] : pathData[pathDataL - 1];
+    let lastComL = lastCom.values.length;
+    let [xE, yE] = [lastCom.values[lastComL - 2], lastCom.values[lastComL - 1]];
+
+    let diffX = Math.abs(x0 - xE);
+    let diffY = Math.abs(y0 - yE);
+    let diff = (diffX+diffY)/2;
+
+    if (closed && (diff>0.1)) {
+
+      pathData.pop();
+      pathData.push(
+        {
+          type: "L",
+          values: [x0, y0]
+        },
+        {
+          type: "Z",
+          values: []
+        }
+      );
+    }
+
+
   }
+//console.log(pathData);
 
   return pathData;
 }
