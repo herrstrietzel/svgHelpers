@@ -401,54 +401,69 @@ function fieldSorter(fields) {
  * shift starting point
  */
 function shiftSvgStartingPoint(pathData, offset) {
-  pathData = addClosePathLineto(pathData);
+
   let pathDataL = pathData.length;
   let newStartIndex = 0;
   if (offset == 0) {
     return pathData;
   }
 
-  //exclude Z/z (closepath) command if present
-  let lastCommand = pathData[pathDataL - 1]["type"];
-  let trimRight = lastCommand.toLowerCase() == "z" ? 1 : 0;
+  /**
+   * 1. works only for closed paths
+   */
+  let closed = pathData[pathDataL - 1]["type"] == "Z" ? true : false;
+  if (closed) {
+    pathData = addClosePathLineto(pathData);
 
-  // M start offset
-  newStartIndex =
-    offset + 1 < pathData.length - 1
-      ? offset + 1
-      : pathData.length - 1 - trimRight;
+    //exclude Z/z (closepath) command if present
+    let lastCommand = pathData[pathDataL - 1]["type"];
+    let trimRight = lastCommand.toLowerCase() == "z" ? 1 : 0;
 
-  // slice array to reorder
-  let pathDataStart = pathData.slice(newStartIndex);
-  let pathDataEnd = pathData.slice(0, newStartIndex);
+    // M start offset
+    newStartIndex =
+      offset + 1 < pathData.length - 1
+        ? offset + 1
+        : pathData.length - 1 - trimRight;
 
-  // remove original M
-  pathDataEnd.shift();
-  let pathDataEndL = pathDataEnd.length;
+    // slice array to reorder
+    let pathDataStart = pathData.slice(newStartIndex);
+    let pathDataEnd = pathData.slice(0, newStartIndex);
 
-  let pathDataEndLastValues = pathDataEnd[pathDataEndL - 1]["values"];
-  let pathDataEndLastXY = [
-    pathDataEndLastValues[pathDataEndLastValues.length - 2],
-    pathDataEndLastValues[pathDataEndLastValues.length - 1]
-  ];
+    // remove original M
+    pathDataEnd.shift();
+    let pathDataEndL = pathDataEnd.length;
 
-  //remove z(close path) from original pathdata array
-  if (trimRight) {
-    pathDataStart.pop();
-    pathDataEnd.push({
-      type: "Z",
-      values: []
-    });
-  }
-  // prepend new M command and concatenate array chunks
-  pathData = [
-    {
-      type: "M",
-      values: pathDataEndLastXY
+    let pathDataEndLastValues = pathDataEnd[pathDataEndL - 1]["values"];
+    let pathDataEndLastXY = [
+      pathDataEndLastValues[pathDataEndLastValues.length - 2],
+      pathDataEndLastValues[pathDataEndLastValues.length - 1]
+    ];
+
+    //remove z(close path) from original pathdata array
+    if (trimRight) {
+      pathDataStart.pop();
+      pathDataEnd.push({
+        type: "Z",
+        values: []
+      });
     }
-  ]
-    .concat(pathDataStart)
-    .concat(pathDataEnd);
+    // prepend new M command and concatenate array chunks
+    pathData = [
+      {
+        type: "M",
+        values: pathDataEndLastXY
+      }
+    ]
+      .concat(pathDataStart)
+      .concat(pathDataEnd);
+  }
+  /**
+   * 2. open paths
+   * just reverse
+   */
+  else {
+    pathData = reversePathData(pathData);
+  }
 
   return pathData;
 }
@@ -502,6 +517,7 @@ function addClosePathLineto(pathData) {
       }
     );
   }
+
   return pathData;
 }
 
@@ -550,48 +566,48 @@ function getPointAtQuadraticSegmentLength(p0, cp1, p, t = 0.5) {
 
 function analyzePathData(pathData) {
 
-    let minDec = 0;
-    let hasShorthand = false;
-    let hasRelative = false;
-    let subPathCount = 0;
-    pathData.forEach((com, i) => {
-      let type = com.type;
-      let typeA = type.toUpperCase();
-      if (type != typeA) {
-        hasRelative = true;
-      }
-  
-      // test shorthands
-      const regex = new RegExp("[H|V|S|T]", "gi");
-      if (regex.test(typeA)) {
-        hasShorthand = true;
-      }
-  
-      //test subpaths
-      if (type.toLowerCase() === 'm' && i > 0) {
-        subPathCount++
-      }
-  
-      let values = com.values;
-      values.forEach((val) => {
-        let numArr = (+val.toFixed(8)).toString().split(".").filter(Boolean);
-        if (numArr[1]) {
-          let decs = numArr[1].length;
-          if (decs > minDec) {
-            minDec = decs;
-          }
+  let minDec = 0;
+  let hasShorthand = false;
+  let hasRelative = false;
+  let subPathCount = 0;
+  pathData.forEach((com, i) => {
+    let type = com.type;
+    let typeA = type.toUpperCase();
+    if (type != typeA) {
+      hasRelative = true;
+    }
+
+    // test shorthands
+    const regex = new RegExp("[H|V|S|T]", "gi");
+    if (regex.test(typeA)) {
+      hasShorthand = true;
+    }
+
+    //test subpaths
+    if (type.toLowerCase() === 'm' && i > 0) {
+      subPathCount++
+    }
+
+    let values = com.values;
+    values.forEach((val) => {
+      let numArr = (+val.toFixed(8)).toString().split(".").filter(Boolean);
+      if (numArr[1]) {
+        let decs = numArr[1].length;
+        if (decs > minDec) {
+          minDec = decs;
         }
-      });
+      }
     });
-  
-    let comLast = pathData[pathData.length - 1].type.toLowerCase();
-    let isClosed = comLast === 'z' ? true : false;
-  
-    return {
-      minDec: minDec,
-      hasShorthand: hasShorthand,
-      hasRelative: hasRelative,
-      closed: isClosed,
-      subPathCount: subPathCount
-    };
-  }
+  });
+
+  let comLast = pathData[pathData.length - 1].type.toLowerCase();
+  let isClosed = comLast === 'z' ? true : false;
+
+  return {
+    minDec: minDec,
+    hasShorthand: hasShorthand,
+    hasRelative: hasRelative,
+    closed: isClosed,
+    subPathCount: subPathCount
+  };
+}
