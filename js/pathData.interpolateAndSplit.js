@@ -440,7 +440,8 @@ function getAngleABC(A, B, C) {
     let BA = Math.sqrt(Math.pow(A.x - B.x, 2) + Math.pow(A.y - B.y, 2));
     let AC = Math.sqrt(Math.pow(A.x - C.x, 2) + Math.pow(A.y - C.y, 2));
     let BC = Math.sqrt(Math.pow(C.x - B.x, 2) + Math.pow(C.y - B.y, 2));
-    let angle = Math.acos((AC * AC + BA * BA - BC * BC) / (2 * AC * BA)) * 180 / Math.PI;
+    let angleProd = +((AC * AC + BA * BA - BC * BC) / (2 * AC * BA)).toFixed(8);
+    let angle = Math.acos(angleProd) * 180 / Math.PI;
     return angle;
 }
 
