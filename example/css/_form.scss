@@ -1,0 +1,370 @@
+/**
+* form elements
+*/
+
+label {
+    margin-right: 2em;
+}
+
+
+label:has(input) {
+    display: inline-block;
+    cursor: pointer;
+}
+
+input,
+select,
+textarea {
+    font-family: inherit;
+    font-size: inherit;
+}
+
+input[type=checkbox],
+input[type=radio],
+input[type=number] {
+    padding: 0;
+}
+
+input[type=text],
+input[type=search],
+select,
+textarea {
+    display: block;
+    width: 100%;
+    padding: var(--input-padding);
+}
+
+input[type=number],
+input[type=text],
+input[type=search],
+select,
+textarea {
+    background: var(--sidebar-bg);
+    color: var(--textcolor)
+}
+
+
+.input__hidden {
+    position: absolute;
+    height: 1px;
+    width: 1px;
+    overflow: hidden;
+    clip: rect(1px, 1px, 1px, 1px);
+}
+
+input[type=number] {
+    width: 3em;
+    padding: 0.1em;
+    line-height: 0.5em;
+    @extend .brd, .brd-rad, .app-non
+}
+
+input[type=number]:focus {
+    border-color: var(--focus-color);
+    outline: none;
+}
+
+input[type="number"]::-webkit-inner-spin-button {
+    opacity: 1;
+}
+
+
+/** select **/
+.input__stylewrap {
+    position: relative;
+    overflow: hidden;
+
+    select {
+        @extend .brd, .brd-rad, .app-non
+    }
+}
+
+
+.btn-download {
+    text-decoration: none;
+    color: #000;
+    font-weight: bold;
+    word-break: break-all;
+}
+
+.btn-download:before {
+    content: "🠗";
+    display: inline-block;
+}
+
+
+.drop-area {
+    border: 2px dotted #ccc;
+    border-radius: 0.5em;
+    padding: 1em;
+    text-align: center;
+    background: transparent;
+    cursor: pointer;
+
+    //hide file input
+    input {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+    }
+
+    label {
+        pointer-events: none;
+        margin-right: 0;
+    }
+
+}
+
+button {
+    border: 1px solid #fff;
+}
+
+textarea {
+    font-family: 'Fira Code';
+    width: 100%;
+    min-height: 20em;
+    resize: vertical;
+}
+
+label,
+.label {
+    font-size: 1em;
+    font-weight: var(--label-font-weight);
+    color: var(--label-color);
+}
+
+.label__textarea {
+    display: block;
+    padding: 0.5em 0em 0.75em 0em;
+    font-weight: 700;
+}
+
+
+.input__stylewrap:focus-within svg {
+    color: var(--focus-color);
+}
+
+.input__stylewrap {
+
+    &:focus,
+    &:focus-within {
+
+        .input__wrap--textarea,
+        select,
+        input {
+            border-color: var(--focus-color);
+            outline: none;
+        }
+    }
+}
+
+/*
+input[type=number],
+.input__stylewrap select,
+.input__textarea {
+    background: var(--sidebar-bg);
+    color: var(--textcolor)
+}
+*/
+
+
+
+
+.input__textarea {
+    border: none;
+    padding: 0;
+    resize: none;
+    overflow: hidden;
+}
+
+.input__textarea:focus {
+    outline: none;
+    overflow: auto;
+}
+
+
+.input__wrap--textarea {
+    padding: 0 0.5em 0.5em 0.5em;
+    //border: 1px solid #000;
+    margin-bottom: 1em;
+    @extend .brd, .brd-rad;
+
+    &:focus-within {
+        border-color: var(--focus-color);
+        outline: none;
+    }
+}
+
+
+.input__stylewrap svg {
+    color: var(--input-border-color)
+}
+
+
+
+
+/** svg icons */
+
+.input__wrap {
+    margin-bottom: 1em;
+
+    &p {
+        margin-top: 0
+    }
+}
+
+
+.input__stylewrap {
+    --translateX: 0%;
+    --stroke-width: 10px;
+    --stroke-width-scale: 0px;
+    --stroke: currentColor;
+    --stroke2: transparent;
+    --strokeDash: 0;
+    --rotate: 0deg;
+    --fill: var(--sidebar-bg);
+    --strokeBG: var(--sidebar-bg);
+
+}
+
+.input__stylewrap--active {
+    --translateX: 70px;
+    --stroke-width: 10px;
+    --stroke-width-scale: 30px;
+    --stroke: currentColor;
+    --stroke2: currentColor;
+    --strokeDash: 100;
+    --rotate: 180deg;
+}
+
+.svg__icon {
+    display: inline-block;
+    height: 1em;
+    overflow: visible;
+}
+
+.svg__icon--checkbox {
+    overflow: visible;
+    position: relative;
+    font-size: 1.2em;
+    bottom: -0.2em;
+    margin-right: 0.2em;
+}
+
+.svg__icon--select {
+    position: absolute;
+    z-index: 10;
+    right: 0.2em;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.svg__icon--select:hover {
+    color: red
+}
+
+
+/** prevent buggy transitions in chrome */
+svg symbol * {
+    transition: none !important
+}
+
+
+.svg__icon--inline {
+    height: 1em;
+    width: auto;
+}
+
+.svg__icon--file {
+    font-size: 2em;
+    line-height: 0px;
+    overflow: visible;
+    transform: translateY(-0.8em);
+    margin-bottom: -1em;
+    color: var(--input-border-color);
+}
+
+
+/** range slider **/
+
+/*Range Reset*/
+input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+}
+
+/* Removes default focus */
+input[type="range"]:focus {
+    outline: none;
+}
+
+/***** Chrome, Safari, Opera and Edge Chromium styles *****/
+/* slider track */
+
+.input__range {
+    &::-webkit-slider-runnable-track {
+        background-color: var(--scroll-thumb);
+        border-radius: 0.5em;
+        height: 0.25em;
+    }
+
+    /* slider thumb */
+    &::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        /* Override default look */
+        appearance: none;
+        //margin-top: -0.25em;
+        //margin-top: -50%;
+        transform: translateY(-40%);
+
+        /*custom styles*/
+        background-color: var(--scroll-thumb);
+        background-color: var(--border-color);
+        height: 1em;
+        width: 1em;
+        border-radius: 1em;
+        outline: 0.2em solid var(--sidebar-bg);
+    }
+
+    &:focus::-webkit-slider-thumb {
+        background-color: var(--focus-color);
+    }
+
+}
+
+
+
+
+/******** Firefox styles ********/
+/* slider track */
+input[type="range"]::-moz-range-track {
+    background-color: var(--scroll-thumb);
+    border-radius: 0.5em;
+    height: 0.25em;
+}
+
+/* slider thumb */
+input[type="range"]::-moz-range-thumb {
+    border: none;
+    /*Removes extra border that FF applies*/
+    -webkit-appearance: none;
+    /* Override default look */
+    appearance: none;
+    transform: translateY(-0%);
+
+    /*custom styles*/
+    background-color: var(--scroll-thumb);
+    background-color: var(--border-color);
+    height: 1em;
+    width: 1em;
+    border-radius: 1em;
+    outline: 0.2em solid var(--sidebar-bg);
+}
+
+input[type="range"]:focus::-moz-range-thumb {
+    background-color: var(--focus-color);
+}
+
