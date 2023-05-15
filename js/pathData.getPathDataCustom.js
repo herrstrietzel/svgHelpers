@@ -152,44 +152,45 @@ SVGGeometryElement.prototype.convertPrimitiveToPath = function (options = {}) {
 
     // get all attributes as object
     const setAttributes = (el, attributes, exclude = []) => {
-        for (key in attributes) {
-            if (exclude.indexOf(key) === -1) {
-                el.setAttribute(key, attributes[key]);
-            }
+      for (key in attributes) {
+        if (exclude.indexOf(key) === -1) {
+          el.setAttribute(key, attributes[key]);
         }
+      }
     }
     const getAttributes = (el) => {
-        let attArr = [...el.attributes];
-        let attObj = {};
-        attArr.forEach(function (att) {
-            attObj[att.nodeName] = att.nodeValue;
-        });
-        return attObj;
+      let attArr = [...el.attributes];
+      let attObj = {};
+      attArr.forEach(function (att) {
+        attObj[att.nodeName] = att.nodeValue;
+      });
+      return attObj;
     }
 
     let attributes = getAttributes(this);
 
     //exclude attributes not needed for paths
     let exclude = [
-        "x",
-        "y",
-        "x1",
-        "y1",
-        "x2",
-        "y2",
-        "cx",
-        "cy",
-        "r",
-        "rx",
-        "ry",
-        "points",
-        "height",
-        "width"
+      "x",
+      "y",
+      "x1",
+      "y1",
+      "x2",
+      "y2",
+      "cx",
+      "cy",
+      "r",
+      "rx",
+      "ry",
+      "points",
+      "height",
+      "width"
     ];
     // copy attributes to path and set pathData
     setAttributes(path, attributes, exclude);
     path.setPathDataOpt(pathData, options);
     this.replaceWith(path);
+    return path;
 }
 
 
