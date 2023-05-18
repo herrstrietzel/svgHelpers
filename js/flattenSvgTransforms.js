@@ -1,8 +1,11 @@
-function flattenSVGTransformations(svg) {
-
+function flattenSVGTransformations(svg, options={decomposeNested: false, decomposeUse: false }) {
     //decompose nested svgs and use instances
-    decomposeNestedSvgs(svg) 
-    decomposeUseEls(svg);
+    if (options.decomposeNested) {
+        decomposeNestedSvgs(svg)
+    }
+    if (options.decomposeUse) {
+        decomposeUseEls(svg);
+    }
 
     let els = svg.querySelectorAll('text, path, polyline, polygon, line, rect, circle, ellipse');
     els.forEach(el => {
@@ -20,7 +23,6 @@ function flattenSVGTransformations(svg) {
         g.style.removeProperty('transform');
         g.style.removeProperty('transform-origin');
     });
-
 }
 
 
