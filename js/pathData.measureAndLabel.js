@@ -177,6 +177,27 @@ function renderPolyLine(svg, points, stroke = "green", strokeWidth = "0.5%") {
 }
 
 
+    function pointArrayToFlat(points) {
+        let polyPoints = [];
+        // if already flat array
+        if (!points[0].length && !points[0].x) {
+            polyPoints = points;
+            console.log("is flat");
+        } else {
+            for (let i = 0; i < points.length; i++) {
+                let point = points[i];
+                if (Array.isArray(points[i])) {
+                    point = {
+                        x: points[i][0],
+                        y: points[i][1]
+                    };
+                }
+                polyPoints.push(point.x, point.y);
+            }
+        }
+        return polyPoints;
+    }
+
 
 /**
  * check if points are congruent
