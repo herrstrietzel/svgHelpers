@@ -180,7 +180,7 @@ function renderPolyLine(svg, points, stroke = "green", strokeWidth = "0.5%") {
     function pointArrayToFlat(points) {
         let polyPoints = [];
         // if already flat array
-        if (!points[0].length && !points[0].x) {
+        if (!points[0].length && !Object.hasOwn(points[0] ,'x')) {
             polyPoints = points;
             console.log("is flat");
         } else {
