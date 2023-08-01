@@ -53,6 +53,7 @@ function reduceElementTransforms(el, decimals = 3) {
             if (isTransformed) {
                 el.setAttribute('transform', transObj.svgTransform);
                 el.removeAttribute('transform-origin');
+                el.style.removeProperty('transform');
                 el.style.removeProperty('transform-origin');
             }
             return false
