@@ -139,6 +139,17 @@ function adjustViewBox(svg) {
     svg.setAttribute("viewBox", [x, y, width, height].join(" "));
 }
 
+function adjustViewBoxPadding(svg, padding=0) {
+  let { x, y, width, height } = svg.getBBox();
+  let widthNew  =  width+padding;
+  let heightNew  =  height+padding;
+  let xNew = +(x + width / 2 - widthNew / 2).toFixed(1);
+  let yNew = +(y + height / 2 - heightNew / 2).toFixed(1);
+  svg.setAttribute("viewBox", [xNew, yNew, widthNew, heightNew].join(" "));
+}
+
+
+
 function renderPoint(
     svg,
     coords,
