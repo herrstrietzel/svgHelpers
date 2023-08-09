@@ -197,29 +197,29 @@ SVGGeometryElement.prototype.convertPrimitiveToPath = function (options = {}) {
 /**
 * create pathData from d attribute
 **/
-function parseDtoPathData(d, normalize = false) {
+function parseDtoPathData(d) {
     // sanitize d string
-    let commandsString = d
+    let dClean = d
         // remove new lines and tabs
         .replace(/[\n\r\t]/g, "")
         // replace comma with space
         .replace(/,/g, " ")
         // add space before minus sign
         .replace(/(\d+)(\-)/g, "$1 $2")
-        // decompose multiple decimal delimiters like 0.5.5 => 0.5 0.5
-        .replace(/(\.)(\d+)(\.)(\d+)/g, "$1$2 $3$4")
-        .replace(/(\.)(\d+)(\.)(\d+)/g, "$1$2 $3$4")
+        // decompose multiple adjacent decimal delimiters like 0.5.5.5 => 0.5 0.5 0.5
+        .replace(/(\.)(?=(\d+\.\d+)+)(\d+)/g, "$1$3 ")
         // split multiple zero valuues like 0 05 => 0 0 5
         .replace(/( )(0)(\d+)/g, "$1 $2 $3")
-        // add space between all valid command letters and values - excludes scientific e notation
-        .replace(/([mlcsqtahvz])/gi, "|$1 ")
+        // add new lines before valid command letters 
+        .replace(/([mlcsqtahvz])/gi, "\n$1 ")
         // remove duplicate whitespace
-        .replace(/\s{2,}/g, " ")
+        .replace(/\ {2,}/g, " ")
         // remove whitespace from right and left
         .trim();
-
-    let commands = commandsString
-        .split("|")
+  
+    // split commands
+    let commands = dClean
+        .split("\n")
         .filter(Boolean)
         .map((val) => {
             return val.trim();
@@ -236,10 +236,10 @@ function parseDtoPathData(d, normalize = false) {
 
         // convert to numbers
         let values = com.map((val) => {
-            return +(val);
+            return parseFloat(val);
         });
 
-        // analyze repeated (shorthanded) commands
+        // analyze implicit / repeated commands
         let chunks = [];
         let repeatedType = type;
         // maximum values for a specific command type
@@ -248,18 +248,13 @@ function parseDtoPathData(d, normalize = false) {
             case "v":
             case "h":
                 maxValues = 1;
-                if (typeLc === "h") {
-                    repeatedType = isRelative ? "h" : "H";
-                } else {
-                    repeatedType = isRelative ? "v" : "V";
-                }
+                repeatedType = typeLc === "h" ? (isRelative ? "h" : "H") : (isRelative ? "v" : "V");
                 break;
             case "m":
             case "l":
             case "t":
                 maxValues = 2;
-                repeatedType =
-                    typeLc !== "t" ? (isRelative ? "l" : "L") : isRelative ? "t" : "T";
+                repeatedType = typeLc !== "t" ? (isRelative ? "l" : "L") : isRelative ? "t" : "T";
                 /**
                  * first starting point should be absolute/uppercase -
                  * unless it adds relative linetos
@@ -272,8 +267,7 @@ function parseDtoPathData(d, normalize = false) {
             case "s":
             case "q":
                 maxValues = 4;
-                repeatedType =
-                    typeLc !== "q" ? (isRelative ? "s" : "S") : isRelative ? "q" : "Q";
+                repeatedType = typeLc !== "q" ? (isRelative ? "s" : "S") : isRelative ? "q" : "Q";
                 break;
             case "c":
                 maxValues = 6;
@@ -308,13 +302,6 @@ function parseDtoPathData(d, normalize = false) {
                 pathData.push({ type: repeatedType, values: chunks[c] });
             }
         }
-    }
-
-    /**
-    * normalize to all absolute, cubic, no shorthand
-    */
-    if (normalize) {
-        pathData = normalizePathData(pathData);
     }
     return pathData;
 }
