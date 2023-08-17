@@ -930,12 +930,34 @@ function convertPathData(pathData, options = {}) {
     return pathData;
 }
 
-// pathData to d string without optimizations
-function pathDataToD(pathData) {
-    let d = pathData.map(com => {
-        return `${com.type}${com.values.join(' ')}`;
-    }).join('');
-    return d;
+// pathData to d string 
+function pathDataToD(pathData, minify = false) {
+  // implicit l command
+  if (pathData[1].type === "l" && minify) {
+    pathData[0].type = "m";
+  }
+  let d = `${pathData[0].type}${pathData[0].values.join(" ")}`;
+  for (let i = 1; i < pathData.length; i++) {
+    let com0 = pathData[i - 1];
+    let com = pathData[i];
+    let type =
+      com0.type === com.type && minify
+        ? ""
+        : (com0.type === "m" && com.type === "l") ||
+          (com0.type === "M" && com.type === "L")
+        ? " "
+        : com.type;
+    d += `${type}${com.values.join(" ")} `;
+  }
+  d = minify
+    ? d
+        .replaceAll(" 0.", " .")
+        .replaceAll(" .", ".")
+        .replaceAll(" -", "-")
+        .replace(/\s+([A-Za-z])/g, "$1")
+        .replaceAll("Z", "z")
+    : d;
+  return d;
 }
 
 // set pathData with optimizations
