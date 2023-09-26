@@ -113,6 +113,150 @@ function getPolyLineLength(points) {
 }
 
 
+/**
+  * based on @cuixiping;
+  * https://stackoverflow.com/questions/9017100/calculate-center-of-svg-arc/12329083#12329083
+  */
+function svgArcToCenterParam(x1, y1, rx, ry, degree, fA, fS, x2, y2) {
+    const radian = (ux, uy, vx, vy) => {
+        let dot = ux * vx + uy * vy;
+        let mod = Math.sqrt((ux * ux + uy * uy) * (vx * vx + vy * vy));
+        let rad = Math.acos(dot / mod);
+        if (ux * vy - uy * vx < 0) {
+            rad = -rad;
+        }
+        return rad;
+    };
+    // degree to radian
+    let phi = (degree * Math.PI) / 180;
+    let cx, cy, startAngle, deltaAngle, endAngle;
+    let PI = Math.PI;
+    let PIx2 = PI * 2;
+    if (rx < 0) {
+        rx = -rx;
+    }
+    if (ry < 0) {
+        ry = -ry;
+    }
+    if (rx == 0 || ry == 0) {
+        // invalid arguments
+        throw Error("rx and ry can not be 0");
+    }
+    let s_phi = Math.sin(phi);
+    let c_phi = Math.cos(phi);
+    let hd_x = (x1 - x2) / 2; // half diff of x
+    let hd_y = (y1 - y2) / 2; // half diff of y
+    let hs_x = (x1 + x2) / 2; // half sum of x
+    let hs_y = (y1 + y2) / 2; // half sum of y
+    // F6.5.1
+    let x1_ = c_phi * hd_x + s_phi * hd_y;
+    let y1_ = c_phi * hd_y - s_phi * hd_x;
+    // F.6.6 Correction of out-of-range radii
+    //   Step 3: Ensure radii are large enough
+    let lambda = (x1_ * x1_) / (rx * rx) + (y1_ * y1_) / (ry * ry);
+    if (lambda > 1) {
+        rx = rx * Math.sqrt(lambda);
+        ry = ry * Math.sqrt(lambda);
+    }
+    let rxry = rx * ry;
+    let rxy1_ = rx * y1_;
+    let ryx1_ = ry * x1_;
+    let sum_of_sq = rxy1_ * rxy1_ + ryx1_ * ryx1_; // sum of square
+    if (!sum_of_sq) {
+        throw Error("start point can not be same as end point");
+    }
+    let coe = Math.sqrt(Math.abs((rxry * rxry - sum_of_sq) / sum_of_sq));
+    if (fA == fS) {
+        coe = -coe;
+    }
+    // F6.5.2
+    let cx_ = (coe * rxy1_) / ry;
+    let cy_ = (-coe * ryx1_) / rx;
+    // F6.5.3
+    cx = c_phi * cx_ - s_phi * cy_ + hs_x;
+    cy = s_phi * cx_ + c_phi * cy_ + hs_y;
+    let xcr1 = (x1_ - cx_) / rx;
+    let xcr2 = (x1_ + cx_) / rx;
+    let ycr1 = (y1_ - cy_) / ry;
+    let ycr2 = (y1_ + cy_) / ry;
+    // F6.5.5
+    startAngle = radian(1.0, 0, xcr1, ycr1);
+    // F6.5.6
+    deltaAngle = radian(xcr1, ycr1, -xcr2, -ycr2);
+    while (deltaAngle > PIx2) {
+        deltaAngle -= PIx2;
+    }
+    while (deltaAngle < 0) {
+        deltaAngle += PIx2;
+    }
+    if (fS == false || fS == 0) {
+        deltaAngle -= PIx2;
+    }
+    endAngle = startAngle + deltaAngle;
+    while (endAngle > PIx2) {
+        endAngle -= PIx2;
+    }
+    while (endAngle < 0) {
+        endAngle += PIx2;
+    }
+    let toDegFactor = 180 / PI;
+    let outputObj = {
+        pt: {
+            x: cx,
+            y: cy
+        },
+        rx: rx,
+        ry: ry,
+        startAngle_deg: startAngle * toDegFactor,
+        startAngle: startAngle,
+        deltaAngle_deg: deltaAngle * toDegFactor,
+        deltaAngle: deltaAngle,
+        endAngle_deg: endAngle * toDegFactor,
+        endAngle: endAngle,
+        clockwise: fS == true || fS == 1
+    };
+    return outputObj;
+}
+/**
+ * Ramanujan approximation
+ * based on: https://www.mathsisfun.com/geometry/ellipse-perimeter.html#tool
+ */
+function getEllipseLength(rx, ry) {
+    // is circle
+    if (rx === ry) {
+        //console.log('is circle')
+        return 2 * Math.PI * rx;
+    }
+    let h = Math.pow((rx - ry) / (rx + ry), 2)
+    let length = Math.PI * (rx + ry) * (1 + (3 * h) / (10 + Math.sqrt(4 - 3 * h)))
+    return length
+}
+
+
+function getPointOnEllipse(rx, ry, cx, cy, deg, rotation = 0, precise = true) {
+    // Convert degrees to radians
+    let rad = (deg * Math.PI) / 180;
+    let rotRad = (rotation * Math.PI) / 180;
+    const cos = (val) => {
+        let c = precise ? Math.cos(val) : 1 - (val ** 2) / 2 + (val ** 4) / 24;
+        return c;
+    }
+    const sin = (val) => {
+        let s = precise ? Math.sin(val) : val - (val ** 3) / 6 + (val ** 5) / 120;
+        return s;
+    }
+    // Calculate the point on the ellipse without rotation
+    let x = cx + rx * cos(rad);
+    let y = cy + ry * sin(rad);
+    // Rotate the calculated point by the specified angle
+    let rotatedX = cx + (x - cx) * cos(rotRad) - (y - cy) * sin(rotRad);
+    let rotatedY = cy + (x - cx) * sin(rotRad) + (y - cy) * cos(rotRad);
+    return {
+        x: rotatedX,
+        y: rotatedY
+    };
+}
+
 
 /**
  * simple performance test
@@ -139,13 +283,13 @@ function adjustViewBox(svg) {
     svg.setAttribute("viewBox", [x, y, width, height].join(" "));
 }
 
-function adjustViewBoxPadding(svg, padding=0) {
-  let { x, y, width, height } = svg.getBBox();
-  let widthNew  =  width+padding;
-  let heightNew  =  height+padding;
-  let xNew = +(x + width / 2 - widthNew / 2).toFixed(1);
-  let yNew = +(y + height / 2 - heightNew / 2).toFixed(1);
-  svg.setAttribute("viewBox", [xNew, yNew, widthNew, heightNew].join(" "));
+function adjustViewBoxPadding(svg, padding = 0) {
+    let { x, y, width, height } = svg.getBBox();
+    let widthNew = width + padding;
+    let heightNew = height + padding;
+    let xNew = +(x + width / 2 - widthNew / 2).toFixed(1);
+    let yNew = +(y + height / 2 - heightNew / 2).toFixed(1);
+    svg.setAttribute("viewBox", [xNew, yNew, widthNew, heightNew].join(" "));
 }
 
 
@@ -188,26 +332,26 @@ function renderPolyLine(svg, points, stroke = "green", strokeWidth = "0.5%") {
 }
 
 
-    function pointArrayToFlat(points) {
-        let polyPoints = [];
-        // if already flat array
-        if (!points[0].length && !Object.hasOwn(points[0] ,'x')) {
-            polyPoints = points;
-            console.log("is flat");
-        } else {
-            for (let i = 0; i < points.length; i++) {
-                let point = points[i];
-                if (Array.isArray(points[i])) {
-                    point = {
-                        x: points[i][0],
-                        y: points[i][1]
-                    };
-                }
-                polyPoints.push(point.x, point.y);
+function pointArrayToFlat(points) {
+    let polyPoints = [];
+    // if already flat array
+    if (!points[0].length && !Object.hasOwn(points[0], 'x')) {
+        polyPoints = points;
+        console.log("is flat");
+    } else {
+        for (let i = 0; i < points.length; i++) {
+            let point = points[i];
+            if (Array.isArray(points[i])) {
+                point = {
+                    x: points[i][0],
+                    y: points[i][1]
+                };
             }
+            polyPoints.push(point.x, point.y);
         }
-        return polyPoints;
     }
+    return polyPoints;
+}
 
 
 /**
