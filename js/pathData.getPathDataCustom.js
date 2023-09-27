@@ -126,7 +126,6 @@ SVGGeometryElement.prototype.getPathDataOpt = function (options = {}, conversion
         ...options
     }
 
-
     if (conversion || options.normalize) {
         pathData = convertPathData(pathData, options);
     }
@@ -321,7 +320,7 @@ function normalizePathData(pathData) {
     let pathDataNorm = [];
     pathData = pathDataToLonghands(pathData);
     pathData.forEach((com, i) => {
-        let [type, values] = [com.type, com.values];
+        let {type, values} = com;
         let comPrev = i > 0 ? pathData[i - 1] : pathData[i];
         let [typePrev, valuesPrev] = [comPrev.type, comPrev.values];
         let valuesPrevL = valuesPrev.length;
@@ -347,22 +346,22 @@ function normalizePathData(pathData) {
 /**
  * convert quadratic commands to cubic
  */
-function pathDataQuadratic2Cubic(previous, command) {
+function pathDataQuadratic2Cubic(p0, com) {
     if (Array.isArray(previous)) {
-        previous = {
+        p0 = {
             x: previous[0],
             y: previous[1]
         }
     }
     let cp1 = {
-        x: previous.x + 2 / 3 * (command[0] - previous.x),
-        y: previous.y + 2 / 3 * (command[1] - previous.y)
+        x: p0.x + 2 / 3 * (com[0] - p0.x),
+        y: p0.y + 2 / 3 * (com[1] - p0.y)
     }
     let cp2 = {
-        x: command[2] + 2 / 3 * (command[0] - command[2]),
-        y: command[3] + 2 / 3 * (command[1] - command[3])
+        x: com[2] + 2 / 3 * (com[0] - com[2]),
+        y: com[3] + 2 / 3 * (com[1] - com[3])
     }
-    return ({ type: "C", values: [cp1.x, cp1.y, cp2.x, cp2.y, command[2], command[3]] });
+    return ({ type: "C", values: [cp1.x, cp1.y, cp2.x, cp2.y, com[2], com[3]] });
 }
 
 
@@ -605,10 +604,9 @@ function pathDataToShorthands(pathData) {
     let pathDataShorts = [comShort];
     for (let i = 1; i < pathData.length; i++) {
         let com = pathData[i];
-        let comPrev = pathData[i - 1];
-        let type = com.type;
-        let values = com.values;
+        let {type, values}  = com;
         let valuesL = values.length;
+        let comPrev = pathData[i - 1];
         let valuesPrev = comPrev.values;
         let valuesPrevL = valuesPrev.length;
         let [x, y] = [values[valuesL - 2], values[valuesL - 1]];
@@ -744,15 +742,14 @@ function pathDataToRelative(pathData, decimals = -1) {
         my = y;
     // loop through commands
     for (let i = 1; i < pathData.length; i++) {
-        let cmd = pathData[i];
-        let type = cmd.type;
+        let com = pathData[i];
+        let {type, values} = com;
         let typeRel = type.toLowerCase();
-        let values = cmd.values;
 
         // is absolute
         if (type != typeRel) {
             type = typeRel;
-            cmd.type = type;
+            com.type = type;
             // check current command types
             switch (typeRel) {
                 case "a":
@@ -777,7 +774,7 @@ function pathDataToRelative(pathData, decimals = -1) {
         }
         // is already relative
         else {
-            if (cmd.type == "m") {
+            if (type == "m") {
                 mx = values[0] + x;
                 my = values[1] + y;
             }
@@ -812,16 +809,16 @@ function pathDataToAbsolute(pathData, decimals = -1) {
         y = M[1],
         mx = x,
         my = y;
+        
     // loop through commands
     for (let i = 1; i < pathData.length; i++) {
-        let cmd = pathData[i];
-        let type = cmd.type;
+        let com = pathData[i];
+        let {type, values} = com;
         let typeAbs = type.toUpperCase();
-        let values = cmd.values;
 
         if (type != typeAbs) {
             type = typeAbs;
-            cmd.type = type;
+            com.type = type;
             // check current command types
             switch (typeAbs) {
                 case "A":
@@ -907,15 +904,22 @@ function convertPathData(pathData, options = {}) {
     pathData = JSON.parse(JSON.stringify(pathData));
 
     // set defaults
-    options = {
-        normalize: options.normalize ? options.normalize : false,
-        arcsToCubic: options.arcsToCubic ? options.arcsToCubic : false,
-        absolute: options.absolute ? options.absolute : false,
-        relative: options.relative ? options.relative : true,
-        longhands: options.longhands ? options.longhands : false,
-        shorthands: options.shorthands ? options.shorthands : true,
-        decimals: (options.decimals || options.decimals === 0) ? options.decimals : 3
-    };
+    let optionsDefault = {
+        normalize : false,
+        arcsToCubic: false,
+        absolute: false,
+        relative: true,
+        longhands: false,
+        shorthands: true,
+        decimals: 3
+    }
+
+    // merge options
+    options ={
+        ...optionsDefault,
+        ...options
+    }
+
     let { normalize, arcsToCubic, absolute, relative, longhands, shorthands, decimals } = options;
 
     // normalize: quadratic to cubic, arcs to curvetos, all absolute
@@ -988,7 +992,6 @@ function roundPathData(pathData, decimals = -1) {
 /**
 * convert pathData array
 */
-
 function convertSnapPathData(pathDataSnap) {
     let pathData = [];
     pathDataSnap.forEach(com => {
@@ -1008,8 +1011,6 @@ function revertSnapPathData(pathData) {
     })
     return pathDataSnap;
 }
-
-
 
 /**
  * add readable command point data 
