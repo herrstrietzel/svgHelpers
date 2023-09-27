@@ -347,10 +347,10 @@ function normalizePathData(pathData) {
  * convert quadratic commands to cubic
  */
 function pathDataQuadratic2Cubic(p0, com) {
-    if (Array.isArray(previous)) {
+    if (Array.isArray(p0)) {
         p0 = {
-            x: previous[0],
-            y: previous[1]
+            x: p0[0],
+            y: p0[1]
         }
     }
     let cp1 = {
