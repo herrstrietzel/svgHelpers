@@ -109,15 +109,23 @@ SVGGeometryElement.prototype.getPathDataOpt = function (options = {}, conversion
      * for processing you usually need 
      * absolute and longhand commands
      */
-    options = {
-        normalize: options.normalize ? options.normalize : false,
-        arcsToCubic: options.arcsToCubic ? options.arcsToCubic : false,
-        absolute: options.absolute ? options.absolute : true,
-        relative: options.relative ? options.relative : false,
-        longhands: options.longhands ? options.longhands : true,
-        shorthands: options.shorthands ? options.shorthands : false,
-        decimals: (options.decimals || options.decimals === 0) ? options.decimals : 9
-    };
+
+    let optionsDefault = {
+        normalize : false,
+        arcsToCubic: false,
+        absolute: true,
+        relative: false,
+        longhands: true,
+        shorthands: false,
+        decimals: -1
+    }
+
+    // merge options
+    options ={
+        ...optionsDefault,
+        ...options
+    }
+
 
     if (conversion || options.normalize) {
         pathData = convertPathData(pathData, options);
@@ -421,8 +429,8 @@ function pathDataArcToCubic(p0, comValues, recursive = false) {
 
         cx = k * r1 * y / r2 + (x1 + x2) / 2;
         cy = k * -r2 * x / r1 + (y1 + y2) / 2;
-        f1 = Math.asin(parseFloat(((y1 - cy) / r2).toFixed(9)));
-        f2 = Math.asin(parseFloat(((y2 - cy) / r2).toFixed(9)));
+        f1 = Math.asin(((y1 - cy) / r2));
+        f2 = Math.asin(((y2 - cy) / r2));
 
         if (x1 < cx) {
             f1 = Math.PI - f1;
@@ -513,8 +521,7 @@ function pathDataToLonghands(pathData) {
 
     for (let i = 1; i < pathData.length; i++) {
         let com = pathData[i];
-        let type = com.type;
-        let values = com.values;
+        let {type, values} = com;
         let valuesL = values.length;
         let valuesPrev = comPrev.values;
         let valuesPrevL = valuesPrev.length;
