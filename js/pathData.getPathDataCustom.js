@@ -447,15 +447,15 @@ function pathDataArcToCubic(p0, comValues, recursive = false) {
     }
 
     let df = f2 - f1;
-
-    if (Math.abs(df) > (Math.PI * 120 / 180)) {
+    let angleThreshold = 90;
+    if (Math.abs(df) > (Math.PI * angleThreshold / 180)) {
         let f2old = f2;
         let x2old = x2;
         let y2old = y2;
 
         f2 = sweepFlag && f2 > f1 ?
-            f2 = f1 + (Math.PI * 120 / 180) * (1) :
-            f2 = f1 + (Math.PI * 120 / 180) * (-1);
+            f2 = f1 + (Math.PI * angleThreshold / 180) * (1) :
+            f2 = f1 + (Math.PI * angleThreshold / 180) * (-1);
         x2 = cx + r1 * Math.cos(f2);
         y2 = cy + r2 * Math.sin(f2);
         params = pathDataArcToCubic([x2, y2], [r1, r2, angle, 0, sweepFlag, x2old, y2old], [f2, f2old, cx, cy]);
