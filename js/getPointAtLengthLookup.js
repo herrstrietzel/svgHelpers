@@ -90,7 +90,9 @@ function getPointAtLengthLookup(pathLengthLookup, length) {
     return pt;
 }
 
-function getPAthLengthLookup(pathData, tDivisions = 10) {
+function getPAthLengthLookup(d, tDivisions = 10) {
+    // get pathdata
+    let pathData = getPathDataNorm(d);
     let pathLength = 0;
     let M = pathData[0];
     let lengthLookup = { totalLength: 0, segments: [] };
@@ -175,6 +177,7 @@ function getPAthLengthLookup(pathData, tDivisions = 10) {
 
     return lengthLookup;
 }
+
 
 
 /**
