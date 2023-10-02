@@ -386,6 +386,169 @@ function getPointAtQuadraticSegmentLength(p0, cp1, p, t = 0.5) {
     };
 }
 
+function getExtremeT(points, steps = 100) {
+  // switch between cubic and quadratic
+  let p0 = points[0];
+  let cp1 = points[1];
+  let cp2 = points.length === 4 ? points[2] : points[1];
+  let p = points[points.length - 1];
+
+  let left = Math.min(...[p0.x, p.x]),
+    right = Math.max(...[p0.x, p.x]),
+    top = Math.min(...[p0.y, p.y]),
+    bottom = Math.max(...[p0.y, p.y]);
+
+  let extremes = {
+    xT: [],
+    yT: [],
+    bb: []
+  };
+
+  // test how many extremes are possible
+  let hasX = 0;
+  let hasY = 0;
+  let hasRight = 0,
+    hasLeft = 0,
+    hasTop = 0,
+    hasBottom = 0;
+
+  if (cp1.y < top || cp2.y < top) {
+    hasY++;
+    hasTop = 1;
+  }
+  if (cp1.y > bottom || cp2.y > bottom) {
+    hasY++;
+    hasBottom = 1;
+  }
+
+  if (cp1.x > right || cp2.x > right) {
+    hasX++;
+    hasRight = 1;
+  }
+  if (cp1.x < left || cp2.x < left) {
+    hasX++;
+    hasLeft = 1;
+  }
+
+  let hasEx = hasX + hasY;
+  if (hasEx === 0) {
+    console.log("no extremes");
+    return extremes;
+  }
+
+  let maxY = 0;
+  let maxYT = 0;
+  let minY = top;
+  let minYT = 0;
+
+  let maxX = 0;
+  let maxXT = 0;
+  let minX = right;
+  let minXT = 0;
+
+  let tStep = 1 / steps;
+  let foundEx = 0;
+
+  let tests = 0;
+  for (let i = 1; i < steps && foundEx < hasEx; i++) {
+    let t = (1 / steps) * i;
+    let pt = getPointAtBezierT(points, t);
+
+    // top extreme
+    if (hasTop) {
+      if (pt.y < minY) {
+        minY = pt.y;
+      } else if (pt.y > minY && minY < top && minYT === 0) {
+        foundEx++;
+        minYT = t - tStep;
+        extremes.yT.push(minYT);
+      }
+    }
+
+    if (hasBottom) {
+      // bottom extreme
+      if (pt.y > maxY) {
+        maxY = pt.y;
+      } else if (pt.y < maxY && maxY > bottom && maxYT === 0) {
+        foundEx++;
+        maxYT = t - tStep;
+        extremes.yT.push(maxYT);
+      }
+    }
+
+    if (hasLeft) {
+      // left extreme
+      if (pt.x < minX) {
+        minX = pt.x;
+      } else if (pt.x > minX && minX < left && minXT === 0) {
+        foundEx++;
+        minXT = t - tStep;
+        extremes.xT.push(minXT);
+      }
+    }
+
+    if (hasRight) {
+      // right extreme
+      if (pt.x > maxX) {
+        maxX = pt.x;
+      } else if (pt.x < maxX && maxX > right && maxXT === 0) {
+        foundEx++;
+        maxXT = t - tStep;
+        extremes.xT.push(maxXT);
+      }
+    }
+    tests++;
+  }
+
+  //get bbox
+  let x = Math.min(...[left, minX]);
+  let y = Math.min(...[top, minY]);
+  let width = Math.max(...[right, maxX]) - x;
+  let height = Math.max(...[bottom, maxY]) - y;
+  extremes.bb = [x, y, width, height];
+
+  return extremes;
+}
+
+function getPointAtBezierT(points, t) {
+  let p0 = points[0],
+    cp1 = points[1],
+    cp2 = points[points.length - 2],
+    p = points[points.length - 1];
+  return points.length === 4
+    ? getPointAtCubicT(p0, cp1, cp2, p, t)
+    : getPointAtQuadraticT(p0, cp1, p, t);
+}
+/**
+ * calculate single points on segments
+ */
+function getPointAtCubicT(p0, cp1, cp2, p, t = 0.5) {
+  let t1 = 1 - t;
+  return {
+    x:
+      t1 ** 3 * p0.x +
+      3 * t1 ** 2 * t * cp1.x +
+      3 * t1 * t ** 2 * cp2.x +
+      t ** 3 * p.x,
+    y:
+      t1 ** 3 * p0.y +
+      3 * t1 ** 2 * t * cp1.y +
+      3 * t1 * t ** 2 * cp2.y +
+      t ** 3 * p.y
+  };
+}
+
+function getPointAtQuadraticT(p0, cp1, p, t = 0.5) {
+  let t1 = 1 - t;
+  return {
+    x: t1 * t1 * p0.x + 2 * t1 * t * cp1.x + t ** 2 * p.x,
+    y: t1 * t1 * p0.y + 2 * t1 * t * cp1.y + t ** 2 * p.y
+  };
+}
+
+
+
+
 function getPointAtArcSegmentLength(p0, comValues, t) {
     if (Array.isArray(p0)) {
         p0 = {
