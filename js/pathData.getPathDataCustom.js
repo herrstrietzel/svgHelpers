@@ -202,8 +202,8 @@ SVGGeometryElement.prototype.convertPrimitiveToPath = function (options = {}) {
 
 
 /**
-* create pathData from d attribute
-**/
+ * create pathData from d attribute
+ **/
 function parseDtoPathData(d) {
     // sanitize d string
     let dClean = d
@@ -215,15 +215,13 @@ function parseDtoPathData(d) {
         .replace(/(\d+)(\-)/g, "$1 $2")
         // decompose multiple adjacent decimal delimiters like 0.5.5.5 => 0.5 0.5 0.5
         .replace(/(\.)(?=(\d+\.\d+)+)(\d+)/g, "$1$3 ")
-        // split multiple zero valuues like 0 05 => 0 0 5
-        .replace(/( )(0)(\d+)/g, "$1 $2 $3")
-        // add new lines before valid command letters 
+        // add new lines before valid command letters
         .replace(/([mlcsqtahvz])/gi, "\n$1 ")
         // remove duplicate whitespace
         .replace(/\ {2,}/g, " ")
         // remove whitespace from right and left
         .trim();
-  
+
     // split commands
     let commands = dClean
         .split("\n")
@@ -255,13 +253,15 @@ function parseDtoPathData(d) {
             case "v":
             case "h":
                 maxValues = 1;
-                repeatedType = typeLc === "h" ? (isRelative ? "h" : "H") : (isRelative ? "v" : "V");
+                repeatedType =
+                    typeLc === "h" ? (isRelative ? "h" : "H") : isRelative ? "v" : "V";
                 break;
             case "m":
             case "l":
             case "t":
                 maxValues = 2;
-                repeatedType = typeLc !== "t" ? (isRelative ? "l" : "L") : isRelative ? "t" : "T";
+                repeatedType =
+                    typeLc !== "t" ? (isRelative ? "l" : "L") : isRelative ? "t" : "T";
                 /**
                  * first starting point should be absolute/uppercase -
                  * unless it adds relative linetos
@@ -274,7 +274,8 @@ function parseDtoPathData(d) {
             case "s":
             case "q":
                 maxValues = 4;
-                repeatedType = typeLc !== "q" ? (isRelative ? "s" : "S") : isRelative ? "q" : "Q";
+                repeatedType =
+                    typeLc !== "q" ? (isRelative ? "s" : "S") : isRelative ? "q" : "Q";
                 break;
             case "c":
                 maxValues = 6;
@@ -283,7 +284,18 @@ function parseDtoPathData(d) {
             case "a":
                 maxValues = 7;
                 repeatedType = isRelative ? "a" : "A";
+
+                if (values.length < 7) {
+                    let lastFlag = values[values.length - 3].toString();
+                    if (lastFlag.length > 1) {
+                        values[3] = lastFlag.split("").map((val) => {
+                            return +val;
+                        });
+                        values = values.flat();
+                    }
+                }
                 break;
+
             // z closepath
             default:
                 maxValues = 0;
@@ -302,6 +314,7 @@ function parseDtoPathData(d) {
         chunks = arrayChunks(values, maxValues);
         // add 1st/regular command
         let chunk0 = chunks.length ? chunks[0] : [];
+
         pathData.push({ type: type, values: chunk0 });
         // add repeated commands
         if (chunks.length > 1) {
@@ -941,34 +954,52 @@ function convertPathData(pathData, options = {}) {
     return pathData;
 }
 
-// pathData to d string 
-function pathDataToD(pathData, minify = false) {
-  // implicit l command
-  if (pathData[1].type === "l" && minify) {
-    pathData[0].type = "m";
-  }
-  let d = `${pathData[0].type}${pathData[0].values.join(" ")}`;
-  for (let i = 1; i < pathData.length; i++) {
-    let com0 = pathData[i - 1];
-    let com = pathData[i];
-    let type =
-      com0.type === com.type && minify
-        ? ""
-        : (com0.type === "m" && com.type === "l") ||
-          (com0.type === "M" && com.type === "L")
-        ? " "
-        : com.type;
-    d += `${type}${com.values.join(" ")} `;
-  }
-  d = minify
-    ? d
-        .replaceAll(" 0.", " .")
-        .replaceAll(" .", ".")
-        .replaceAll(" -", "-")
-        .replace(/\s+([A-Za-z])/g, "$1")
-        .replaceAll("Z", "z")
-    : d;
-  return d;
+
+/**
+* serialize pathData array to 
+* d attribute string 
+*/
+
+function pathDataToD(pathData, decimals = -1, minify = false) {
+    // implicit l command
+    if (pathData[1].type === "l" && minify) {
+        pathData[0].type = "m";
+    }
+
+    let d = `${pathData[0].type}${pathData[0].values.join(" ")}`;
+    console.log('d', d);
+
+    for (let i = 1; i < pathData.length; i++) {
+        let com0 = pathData[i - 1];
+        let com = pathData[i];
+
+        console.log(com0, com);
+
+        let type = (com0.type === com.type && minify)
+            ? " "
+            : ( (com0.type === "m" && com.type === "l") ||
+            (com0.type === "M" && com.type === "l") ||
+            (com0.type === "M" && com.type === "L") )
+                && minify
+                ? " " : com.type;
+
+        // round
+        if (decimals >= 0) {
+            com.values = com.values.map(val => { return +val.toFixed(decimals) })
+        }
+
+        //type = com.type;
+        d += `${type}${com.values.join(" ")}`;
+    }
+
+    d = minify
+        ? d
+            .replaceAll(" 0.", " .")
+            .replaceAll(" -", "-")
+            .replace(/\s+([A-Za-z])/g, "$1")
+            .replaceAll("Z", "z")
+        : d;
+    return d;
 }
 
 // set pathData with optimizations
