@@ -967,13 +967,10 @@ function pathDataToD(pathData, decimals = -1, minify = false) {
     }
 
     let d = `${pathData[0].type}${pathData[0].values.join(" ")}`;
-    console.log('d', d);
 
     for (let i = 1; i < pathData.length; i++) {
         let com0 = pathData[i - 1];
         let com = pathData[i];
-
-        console.log(com0, com);
 
         let type = (com0.type === com.type && minify)
             ? " "
