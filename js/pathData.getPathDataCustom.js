@@ -201,11 +201,11 @@ SVGGeometryElement.prototype.convertPrimitiveToPath = function (options = {}) {
 }
 
 
+
 /**
  * create pathData from d attribute
  **/
 function parseDtoPathData(d) {
-    // sanitize d string
     let dClean = d
         // remove new lines and tabs
         .replace(/[\n\r\t]/g, "")
@@ -225,103 +225,66 @@ function parseDtoPathData(d) {
     // split commands
     let commands = dClean
         .split("\n")
-        .filter(Boolean)
         .map((val) => {
             return val.trim();
         });
 
     // compile pathData
     let pathData = [];
+    let comLengths = {
+        m: 2, a: 7, c: 6, h: 1, l: 2,
+        q: 4, s: 4, t: 2, v: 1, z: 0
+    };
+
 
     for (let i = 0; i < commands.length; i++) {
         let com = commands[i].split(" ");
         let type = com.shift();
-        let typeLc = type.toLowerCase();
-        let isRelative = type === typeLc ? true : false;
+        let typeRel = type.toLowerCase();
+        let isRel = type===typeRel;
 
         // convert to numbers
         let values = com.map((val) => {
             return parseFloat(val);
         });
 
-        // analyze implicit / repeated commands
-        let chunks = [];
-        let repeatedType = type;
-        // maximum values for a specific command type
-        let maxValues = 2;
-        switch (typeLc) {
-            case "v":
-            case "h":
-                maxValues = 1;
-                repeatedType =
-                    typeLc === "h" ? (isRelative ? "h" : "H") : isRelative ? "v" : "V";
-                break;
-            case "m":
-            case "l":
-            case "t":
-                maxValues = 2;
-                repeatedType =
-                    typeLc !== "t" ? (isRelative ? "l" : "L") : isRelative ? "t" : "T";
-                /**
-                 * first starting point should be absolute/uppercase -
-                 * unless it adds relative linetos
-                 * (facilitates d concatenating)
-                 */
-                if (i === 0) {
-                    type = "M";
-                }
-                break;
-            case "s":
-            case "q":
-                maxValues = 4;
-                repeatedType =
-                    typeLc !== "q" ? (isRelative ? "s" : "S") : isRelative ? "q" : "Q";
-                break;
-            case "c":
-                maxValues = 6;
-                repeatedType = isRelative ? "c" : "C";
-                break;
-            case "a":
-                maxValues = 7;
-                repeatedType = isRelative ? "a" : "A";
+        /**
+         * first M is always absolute/uppercase -
+         * unless it adds relative linetos
+         * (facilitates d concatenating)
+         */
+        if (i === 0) {
+            type = "M";
+        }
 
-                if (values.length < 7) {
-                    let lastFlag = values[values.length - 3].toString();
-                    if (lastFlag.length > 1) {
-                        values[3] = lastFlag.split("").map((val) => {
-                            return +val;
-                        });
-                        values = values.flat();
-                    }
+        /**
+         * long arc and sweep flags 
+         * are boolean and can be concatenated like
+         * 11 or 01
+         */
+        if(typeRel==='a'){
+            if (values.length < comLengths[typeRel]) {
+                let lastFlag = values[values.length - 3].toString();
+                if (lastFlag.length > 1) {
+                   let flagArr = lastFlag.split("");
+                   values = [ values[0], values[1], values[2] , +flagArr[0], +flagArr[1], values[4] , values[5] ];
                 }
-                break;
-
-            // z closepath
-            default:
-                maxValues = 0;
+            }
         }
 
         // if string contains repeated shorthand commands - split them
-        const arrayChunks = (array, chunkSize = 2) => {
-            let chunks = [];
-            for (let i = 0; i < array.length; i += chunkSize) {
-                let chunk = array.slice(i, i + chunkSize);
-                chunks.push(chunk);
-            }
-            return chunks;
-        };
+        let chunkSize = comLengths[typeRel];
+        let chunk = values.slice(0, chunkSize);
+        pathData.push({ type: type, values: chunk });
 
-        chunks = arrayChunks(values, maxValues);
-        // add 1st/regular command
-        let chunk0 = chunks.length ? chunks[0] : [];
-
-        pathData.push({ type: type, values: chunk0 });
-        // add repeated commands
-        if (chunks.length > 1) {
-            for (let c = 1; c < chunks.length; c++) {
-                pathData.push({ type: repeatedType, values: chunks[c] });
+        if(values.length>chunkSize){
+            let typeImplicit = type === 'M' ? (isRel ? 'l' : 'L') : type;
+            for (let i = chunkSize; i < values.length; i += chunkSize ) {
+                let chunk = values.slice(i, i + chunkSize);
+                pathData.push({ type: typeImplicit, values: chunk });
             }
         }
+
     }
     return pathData;
 }
