@@ -371,40 +371,57 @@ function pathDataToCubic(pathData, convertQuadratic = true) {
  * form `{type:command, values:[]}`
  */
 function getPathData(d) {
-    // expected argument lengths
-    let length = {
-        a: 7, c: 6, h: 1, l: 2, m: 2,
-        q: 4, s: 4, t: 2, v: 1, z: 0
-    };
-    // segment pattern
-    let segment = /([astvzqmhlc])([^astvzqmhlc]*)/gi;
-    let number = /-?[0-9]*\.?[0-9]+(?:e[-+]?\d+)?/gi;
-    let data = [];
-    const parseValues = (args) => {
-        let numbers = args.match(number);
-        return numbers ? numbers.map(Number) : [];
-    };
-    // split adjacent zero values like 0 05 => 0 0 5
-    d = d.replace(/( )(0)(\d+)/g, "$1 $2 $3");
+
+    var segment = /([astvzqmhlc])([^astvzqmhlc]*)/ig
+    var length = { a: 7, c: 6, h: 1, l: 2, m: 2, q: 4, s: 4, t: 2, v: 1, z: 0 }
+    let number = /-?[0-9]*\.?[0-9]+(?:e[-+]?\d+)?/ig
+
+    function parseValues(args) {
+        var numbers = args.match(number)
+        return numbers ? numbers.map(Number) : []
+    }
+
+    let pathData = [];
+
     d.replace(segment, function (_, command, args) {
-        let type = command.toLowerCase();
-        args = parseValues(args);
-        // implicit lineto
-        if (type == "m" && args.length > 2) {
-            data.push([command].concat(args.splice(0, 2)));
-            type = "l";
-            command = command == "m" ? "l" : "L";
+        var type = command.toLowerCase()
+        args = parseValues(args)
+
+        // overloaded moveTo
+        if (type == 'm' && args.length > 2) {
+            pathData.push({ type: command, values: args.splice(0, 2) })
+            type = 'l'
+            command = command == 'm' ? 'l' : 'L'
         }
+
         while (true) {
+
+            /**
+             * long arc and sweep flags 
+             * are boolean and can be concatenated like
+             * 11 or 01
+             */
+            if (type === 'a' && args.length < length[type]) {
+                let flagArr = args[3].toString().split("");
+                args = [args[0], args[1], args[2], +flagArr[0], +flagArr[1], args[4], args[5]];
+            }
+
             if (args.length == length[type]) {
                 let values = args.splice(0, length[type]);
-                return data.push({ type: command, values: values });
+                return pathData.push({ type: command, values: values })
             }
-            if (args.length < length[type]) throw new Error("malformed path data");
+
+            // still too few values
+            if (args.length < length[type]) {
+                throw new Error('malformed path data')
+            }
+
+            pathData.push({ type: command, values: args.splice(0, length[type]) })
         }
-    });
-    return data;
+    })
+    return pathData
 }
+
 
 /**
  * This is a port of Dmitry Baranovskiy's 
