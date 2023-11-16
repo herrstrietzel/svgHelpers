@@ -434,3 +434,202 @@ function pathDataToVerbose(pathData) {
     });
     return pathDataVerbose;
 }
+
+
+    function getPAthDataLength(pathData) {
+      // get pathdata
+      let pathLength = 0;
+      let M = pathData[0];
+
+      //let off = 0;
+      for (let i = 1; i < pathData.length; i++) {
+        let comPrev = pathData[i - 1];
+        let valuesPrev = comPrev.values;
+        let valuesPrevL = valuesPrev.length;
+        let p0 = { x: valuesPrev[valuesPrevL - 2], y: valuesPrev[valuesPrevL - 1] };
+
+        let com = pathData[i];
+        let { type, values } = com;
+        let valuesL = values.length;
+        let p = { x: values[valuesL - 2], y: values[valuesL - 1] };
+        let len, cp1, cp2, t;
+
+        // interpret closePath as lineto
+        switch (type) {
+          case "M":
+            // new M
+            M = pathData[i];
+            len = 0;
+            break;
+
+          case "Z":
+            // line to previous M
+            p = { x: M.values[0], y: M.values[1] };
+            len = getLineLength(p0, p);
+            break;
+
+          case "L":
+            len = getLineLength(p0, p);
+            break;
+
+          case "C":
+          case "Q":
+            cp1 = { x: values[0], y: values[1] };
+            cp2 = type === 'C' ? { x: values[2], y: values[3] } : cp1;
+            len = type === 'C' ? cubicBezierLength(p0, cp1, cp2, p, 1) : quadraticBezierLength(p0, cp1, p, 1);
+            break;
+          default:
+            len = 0;
+            break;
+        }
+        pathLength += len;
+      }
+      return pathLength;
+    }
+
+
+
+    /**
+     * Based on snap.svg bezlen() function
+     * https://github.com/adobe-webplatform/Snap.svg/blob/master/dist/snap.svg.js#L5786
+     */
+    function cubicBezierLength(p0, cp1, cp2, p, t = 1) {
+      if (t === 0) {
+        return 0;
+      }
+      const base3 = (t, p1, p2, p3, p4) => {
+        let t1 = -3 * p1 + 9 * p2 - 9 * p3 + 3 * p4,
+          t2 = t * t1 + 6 * p1 - 12 * p2 + 6 * p3;
+        return t * t2 - 3 * p1 + 3 * p2;
+      };
+      t = t > 1 ? 1 : t < 0 ? 0 : t;
+      let t2 = t / 2;
+      let Tvalues = [
+        -0.0640568928626056260850430826247450385909,
+        0.0640568928626056260850430826247450385909,
+        -0.1911188674736163091586398207570696318404,
+        0.1911188674736163091586398207570696318404,
+        -0.3150426796961633743867932913198102407864,
+        0.3150426796961633743867932913198102407864,
+        -0.4337935076260451384870842319133497124524,
+        0.4337935076260451384870842319133497124524,
+        -0.5454214713888395356583756172183723700107,
+        0.5454214713888395356583756172183723700107,
+        -0.6480936519369755692524957869107476266696,
+        0.6480936519369755692524957869107476266696,
+        -0.7401241915785543642438281030999784255232,
+        0.7401241915785543642438281030999784255232,
+        -0.8200019859739029219539498726697452080761,
+        0.8200019859739029219539498726697452080761,
+        -0.8864155270044010342131543419821967550873,
+        0.8864155270044010342131543419821967550873,
+        -0.9382745520027327585236490017087214496548,
+        0.9382745520027327585236490017087214496548,
+        -0.9747285559713094981983919930081690617411,
+        0.9747285559713094981983919930081690617411,
+        -0.9951872199970213601799974097007368118745,
+        0.9951872199970213601799974097007368118745
+      ];
+      let Cvalues = [
+        0.1279381953467521569740561652246953718517,
+        0.1279381953467521569740561652246953718517,
+        0.1258374563468282961213753825111836887264,
+        0.1258374563468282961213753825111836887264,
+        0.1216704729278033912044631534762624256070,
+        0.1216704729278033912044631534762624256070,
+        0.1155056680537256013533444839067835598622,
+        0.1155056680537256013533444839067835598622,
+        0.1074442701159656347825773424466062227946,
+        0.1074442701159656347825773424466062227946,
+        0.0976186521041138882698806644642471544279,
+        0.0976186521041138882698806644642471544279,
+        0.0861901615319532759171852029837426671850,
+        0.0861901615319532759171852029837426671850,
+        0.0733464814110803057340336152531165181193,
+        0.0733464814110803057340336152531165181193,
+        0.0592985849154367807463677585001085845412,
+        0.0592985849154367807463677585001085845412,
+        0.0442774388174198061686027482113382288593,
+        0.0442774388174198061686027482113382288593,
+        0.0285313886289336631813078159518782864491,
+        0.0285313886289336631813078159518782864491,
+        0.0123412297999871995468056670700372915759,
+        0.0123412297999871995468056670700372915759
+      ];
+
+
+      let n = Tvalues.length;
+      let sum = 0;
+      for (let i = 0; i < n; i++) {
+        let ct = t2 * Tvalues[i] + t2,
+          xbase = base3(ct, p0.x, cp1.x, cp2.x, p.x),
+          ybase = base3(ct, p0.y, cp1.y, cp2.y, p.y),
+          comb = xbase * xbase + ybase * ybase;
+        sum += Cvalues[i] * Math.sqrt(comb);
+      }
+      return t2 * sum;
+    }
+
+
+
+    function quadraticBezierLength(p0, cp1, p, t = 1) {
+      if (t === 0) {
+        return 0;
+      }
+
+      const interpolate = (p1, p2, t) => {
+        let pt = { x: (p2.x - p1.x) * t + p1.x, y: (p2.y - p1.y) * t + p1.y };
+        return pt;
+      }
+      const getLineLength = (p1, p2) => {
+        return Math.sqrt(
+          (p2.x - p1.x) * (p2.x - p1.x) + (p2.y - p1.y) * (p2.y - p1.y)
+        );
+      }
+
+      // is flat/linear 
+      let l1 = getLineLength(p0, cp1) + getLineLength(cp1, p);
+      let l2 = getLineLength(p0, p);
+      if (l1 === l2) {
+        let m1 = interpolate(p0, cp1, t);
+        let m2 = interpolate(cp1, p, t);
+        p = interpolate(m1, m2, t);
+        let lengthL;
+        lengthL = Math.sqrt((p.x - p0.x) * (p.x - p0.x) + (p.y - p0.y) * (p.y - p0.y));
+        return lengthL;
+      }
+
+      let a, b, c, d, e, e1, d1, v1x, v1y;
+      v1x = cp1.x * 2;
+      v1y = cp1.y * 2;
+      d = p0.x - v1x + p.x;
+      d1 = p0.y - v1y + p.y;
+      e = v1x - 2 * p0.x;
+      e1 = v1y - 2 * p0.y;
+      a = 4 * (d * d + d1 * d1);
+      b = 4 * (d * e + d1 * e1);
+      c = e * e + e1 * e1;
+
+      const bt = b / (2 * a),
+        ct = c / a,
+        ut = t + bt,
+        k = ct - bt ** 2;
+
+      return (
+        (Math.sqrt(a) / 2) *
+        (ut * Math.sqrt(ut ** 2 + k) -
+          bt * Math.sqrt(bt ** 2 + k) +
+          k *
+          Math.log((ut + Math.sqrt(ut ** 2 + k)) / (bt + Math.sqrt(bt ** 2 + k))))
+      );
+    }
+
+    function getLineLength(p1, p2) {
+      return Math.sqrt(
+        (p2.x - p1.x) * (p2.x - p1.x) + (p2.y - p1.y) * (p2.y - p1.y)
+      );
+    }
+
+
+
+
