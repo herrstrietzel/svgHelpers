@@ -571,7 +571,6 @@ function pathDataToVerbose(pathData) {
     }
 
 
-
     function quadraticBezierLength(p0, cp1, p, t = 1) {
       if (t === 0) {
         return 0;
@@ -631,7 +630,6 @@ function pathDataToVerbose(pathData) {
     }
 
 
-
 /**
  * James Godfrey-Kittle/@jamesgk : https://github.com/Pomax/BezierInfo-2/issues/238
  */
@@ -673,7 +671,6 @@ function polygonArea(points, absolute = true) {
   }
   return area;
 }
-
 
 function getPolygonArea(el) {
   // convert point string to arra of numbers
