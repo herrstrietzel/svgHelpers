@@ -632,4 +632,65 @@ function pathDataToVerbose(pathData) {
 
 
 
+/**
+ * James Godfrey-Kittle/@jamesgk : https://github.com/Pomax/BezierInfo-2/issues/238
+ */
+function getBezierArea(coords) {
+  let x0 = coords[0];
+  let y0 = coords[1];
+  //if is cubic command
+  if (coords.length == 8) {
+    let x1 = coords[2];
+    let y1 = coords[3];
+    let x2 = coords[4];
+    let y2 = coords[5];
+    let x3 = coords[6];
+    let y3 = coords[7];
+    let area =
+      ((x0 * (-2 * y1 - y2 + 3 * y3) +
+        x1 * (2 * y0 - y2 - y3) +
+        x2 * (y0 + y1 - 2 * y3) +
+        x3 * (-3 * y0 + y1 + 2 * y2)) *
+        3) /
+      20;
+    return area;
+  } else {
+    return 0;
+  }
+}
+
+function polygonArea(points, absolute = true) {
+  let area = 0;
+  for (let i = 0; i < points.length; i++) {
+    const addX = points[i][0];
+    const addY = points[i === points.length - 1 ? 0 : i + 1][1];
+    const subX = points[i === points.length - 1 ? 0 : i + 1][0];
+    const subY = points[i][1];
+    area += addX * addY * 0.5 - subX * subY * 0.5;
+  }
+  if (absolute) {
+    area = Math.abs(area);
+  }
+  return area;
+}
+
+
+function getPolygonArea(el) {
+  // convert point string to arra of numbers
+  let points = el
+    .getAttribute("points")
+    .split(/,| /)
+    .filter(Boolean)
+    .map((val) => {
+      return parseFloat(val);
+    });
+  let polyPoints = [];
+  for (let i = 0; i < points.length; i += 2) {
+    polyPoints.push([points[i], points[i + 1]]);
+  }
+  let area = polygonArea(polyPoints);
+  return area;
+}
+
+
 
