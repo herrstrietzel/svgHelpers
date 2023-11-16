@@ -20,6 +20,7 @@ SVGGeometryElement.prototype.getPathDataOpt = function (options = {}, conversion
     let pathData = [];
     let type = this.nodeName;
     let d, x, y, width, height, r, rx, ry, cx, cy;
+    accurateCircle = options.accurateCircle;
 
     switch (type) {
         case 'path':
@@ -70,14 +71,64 @@ SVGGeometryElement.prototype.getPathDataOpt = function (options = {}, conversion
             rx = this.rx ? this.rx.baseVal.value : r;
             ry = this.ry ? this.ry.baseVal.value : r;
 
-            pathData = [
-                { type: "M", values: [cx + rx, cy] },
-                { type: "A", values: [rx, ry, 0, 0, 1, cx, cy + ry] },
-                { type: "A", values: [rx, ry, 0, 0, 1, cx - rx, cy] },
-                { type: "A", values: [rx, ry, 0, 0, 1, cx, cy - ry] },
-                { type: "A", values: [rx, ry, 0, 0, 1, cx + rx, cy] },
-                { type: "Z", values: [] }
-            ];
+
+            if(accurateCircle){
+
+                let pt1 = getPointOnEllipse(rx, ry, cx, cy, 45)
+                let pt2 = getPointOnEllipse(rx, ry, cx, cy, 135)
+                let pt3 = getPointOnEllipse(rx, ry, cx, cy, 225)
+                let pt4 = getPointOnEllipse(rx, ry, cx, cy, 315)
+    
+                pathData = [
+                    
+                    { type: "M", values: [cx + rx, cy] },
+                    { type: "A", values: [rx, ry, 0, 0, 1, pt1.x, pt1.y] },
+                    { type: "A", values: [rx, ry, 0, 0, 1, cx, cy + ry] },
+
+                    { type: "A", values: [rx, ry, 0, 0, 1, pt2.x, pt2.y] },
+                    { type: "A", values: [rx, ry, 0, 0, 1, cx - rx, cy] },
+
+
+                    { type: "A", values: [rx, ry, 0, 0, 1, pt3.x, pt3.y] },
+                    { type: "A", values: [rx, ry, 0, 0, 1, cx, cy - ry] },
+
+                    { type: "A", values: [rx, ry, 0, 0, 1, pt4.x, pt4.y] },
+                    { type: "A", values: [rx, ry, 0, 0, 1, cx + rx, cy] },
+
+                    { type: "Z", values: [] }
+                    
+                ];
+
+
+            } else{
+                
+                            pathData = [
+                
+                                /*
+                                { type: "M", values: [cx + rx, cy] },
+                                { type: "A", values: [rx, ry, 0, 0, 1, cx - rx, cy] },
+                                { type: "A", values: [rx, ry, 0, 0, 1, cx + rx, cy] },
+                                //{ type: "A", values: [rx, ry, 0, 0, 1, cx - rx, cy - ry] },
+                                //{ type: "A", values: [rx, ry, 0, 0, 1, cx - rx, cy] },
+                                //{ type: "A", values: [rx, ry, 0, 0, 1, cx, cy - ry] },
+                                //{ type: "A", values: [rx, ry, 0, 0, 1, cx + rx, cy] },
+                                //{ type: "Z", values: [] }
+                                */
+                
+                
+                                
+                                { type: "M", values: [cx + rx, cy] },
+                                { type: "A", values: [rx, ry, 0, 0, 1, cx, cy + ry] },
+                                { type: "A", values: [rx, ry, 0, 0, 1, cx - rx, cy] },
+                                { type: "A", values: [rx, ry, 0, 0, 1, cx, cy - ry] },
+                                { type: "A", values: [rx, ry, 0, 0, 1, cx + rx, cy] },
+                                { type: "Z", values: [] }
+                                
+                            ];
+
+            }
+            
+
             break;
         case 'line':
             pathData = [
@@ -315,6 +366,8 @@ function normalizePathData(pathData) {
                 pathDataNorm.push(com);
         }
     });
+
+
     return pathDataNorm;
 }
 
@@ -404,8 +457,13 @@ function pathDataArcToCubic(p0, comValues, recursive = false) {
 
         cx = k * r1 * y / r2 + (x1 + x2) / 2;
         cy = k * -r2 * x / r1 + (y1 + y2) / 2;
-        f1 = Math.asin(((y1 - cy) / r2));
-        f2 = Math.asin(((y2 - cy) / r2));
+
+        //f1 = Math.asin(((y1 - cy) / r2));
+        //f2 = Math.asin(((y2 - cy) / r2));
+
+        f1 = Math.asin(parseFloat(((y1 - cy) / r2).toFixed(9)));
+        f2 = Math.asin(parseFloat(((y2 - cy) / r2).toFixed(9)));
+
 
         if (x1 < cx) {
             f1 = Math.PI - f1;
@@ -431,6 +489,8 @@ function pathDataArcToCubic(p0, comValues, recursive = false) {
 
     let df = f2 - f1;
     let angleThreshold = 90;
+
+
     if (Math.abs(df) > (Math.PI * angleThreshold / 180)) {
         let f2old = f2;
         let x2old = x2;
@@ -441,8 +501,9 @@ function pathDataArcToCubic(p0, comValues, recursive = false) {
             f2 = f1 + (Math.PI * angleThreshold / 180) * (-1);
         x2 = cx + r1 * Math.cos(f2);
         y2 = cy + r2 * Math.sin(f2);
+
         params = pathDataArcToCubic([x2, y2], [r1, r2, angle, 0, sweepFlag, x2old, y2old], [f2, f2old, cx, cy]);
-    }
+    } 
 
     df = f2 - f1;
 
@@ -1065,4 +1126,29 @@ function pathDataToVerbose(pathData) {
         pathDataVerbose.push(comObj);
     });
     return pathDataVerbose;
+}
+
+
+function getPointOnEllipse(rx, ry, cx, cy, deg, rotation = 0, precise = true) {
+    // Convert degrees to radians
+    let rad = (deg * Math.PI) / 180;
+    let rotRad = (rotation * Math.PI) / 180;
+    const cos = (val) => {
+        let c = precise ? Math.cos(val) : 1 - (val ** 2) / 2 + (val ** 4) / 24;
+        return c;
+    }
+    const sin = (val) => {
+        let s = precise ? Math.sin(val) : val - (val ** 3) / 6 + (val ** 5) / 120;
+        return s;
+    }
+    // Calculate the point on the ellipse without rotation
+    let x = cx + rx * cos(rad);
+    let y = cy + ry * sin(rad);
+    // Rotate the calculated point by the specified angle
+    let rotatedX = cx + (x - cx) * cos(rotRad) - (y - cy) * sin(rotRad);
+    let rotatedY = cy + (x - cx) * sin(rotRad) + (y - cy) * cos(rotRad);
+    return {
+        x: rotatedX,
+        y: rotatedY
+    };
 }
