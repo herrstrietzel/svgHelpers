@@ -252,92 +252,125 @@ SVGGeometryElement.prototype.convertPrimitiveToPath = function (options = {}) {
 }
 
 
-
 /**
- * create pathData from d attribute
+ * parse pathData from d attribute
  **/
 function parseDtoPathData(d) {
-    let dClean = d
-        // remove new lines and tabs
-        .replace(/[\n\r\t]/g, "")
-        // replace comma with space
-        .replace(/,/g, " ")
-        // add space before minus sign
-        .replace(/(\d+)(\-)/g, "$1 $2")
-        // decompose multiple adjacent decimal delimiters like 0.5.5.5 => 0.5 0.5 0.5
-        .replace(/(\.)(?=(\d+\.\d+)+)(\d+)/g, "$1$3 ")
-        // add new lines before valid command letters
-        .replace(/([mlcsqtahvz])/gi, "\n$1 ")
-        // remove duplicate whitespace
-        .replace(/\ {2,}/g, " ")
-        // remove whitespace from right and left
-        .trim();
+  let dClean = d
+    // remove new lines and tabs
+    .replace(/[\n\r\t]/g, "")
+    // replace comma with space
+    .replace(/,/g, " ")
+    // add space before minus sign
+    .replace(/(\d+)(\-)/g, "$1 $2")
+    // decompose multiple adjacent decimal delimiters like 0.5.5.5 => 0.5 0.5 0.5
+    .replace(/(\.)(?=(\d+\.\d+)+)(\d+)/g, "$1$3 ")
+    // add new lines before valid command letters
+    .replace(/([mlcsqtahvz])/gi, "\n$1 ")
+    // remove duplicate whitespace
+    .replace(/\ {2,}/g, " ")
+    // remove whitespace from right and left
+    .trim();
 
-    // split commands
-    let commands = dClean
-        .split("\n")
-        .map((val) => {
-            return val.trim();
-        });
+  // split commands
+  let commands = dClean.split("\n").map((val) => {
+    return val.trim();
+  });
 
-    // compile pathData
-    let pathData = [];
-    let comLengths = {
-        m: 2, a: 7, c: 6, h: 1, l: 2,
-        q: 4, s: 4, t: 2, v: 1, z: 0
-    };
+  // compile pathData
+  let pathData = [];
+  let comLengths = {
+    m: 2,
+    a: 7,
+    c: 6,
+    h: 1,
+    l: 2,
+    q: 4,
+    s: 4,
+    t: 2,
+    v: 1,
+    z: 0
+  };
 
+  let errors = [];
 
-    for (let i = 0; i < commands.length; i++) {
-        let com = commands[i].split(" ");
-        let type = com.shift();
-        let typeRel = type.toLowerCase();
-        let isRel = type===typeRel;
+  for (let i = 0; i < commands.length; i++) {
+    let com = commands[i].split(" ");
+    let type = com.shift();
+    let typeRel = type.toLowerCase();
+    let isRel = type === typeRel;
 
-        // convert to numbers
-        let values = com.map((val) => {
-            return parseFloat(val);
-        });
+    // convert to numbers
+    let values = com.map((val) => {
+      return parseFloat(val);
+    });
 
-        /**
-         * first M is always absolute/uppercase -
-         * unless it adds relative linetos
-         * (facilitates d concatenating)
-         */
-        if (i === 0) {
-            type = "M";
-        }
-
-        /**
-         * long arc and sweep flags 
-         * are boolean and can be concatenated like
-         * 11 or 01
-         */
-        if(typeRel==='a'){
-            if (values.length < comLengths[typeRel]) {
-                let lastFlag = values[values.length - 3].toString();
-                if (lastFlag.length > 1) {
-                   let flagArr = lastFlag.split("");
-                   values = [ values[0], values[1], values[2] , +flagArr[0], +flagArr[1], values[4] , values[5] ];
-                }
-            }
-        }
-
-        // if string contains repeated shorthand commands - split them
-        let chunkSize = comLengths[typeRel];
-        let chunk = values.slice(0, chunkSize);
-        pathData.push({ type: type, values: chunk });
-
-        if(values.length>chunkSize){
-            let typeImplicit = type === 'M' ? (isRel ? 'l' : 'L') : type;
-            for (let i = chunkSize; i < values.length; i += chunkSize ) {
-                let chunk = values.slice(i, i + chunkSize);
-                pathData.push({ type: typeImplicit, values: chunk });
-            }
-        }
-
+    /**
+     * first M is always absolute/uppercase -
+     * unless it adds relative linetos
+     * (facilitates d concatenating)
+     */
+    if (i === 0) {
+      type = "M";
     }
-    return pathData;
+
+    /**
+     * long arc and sweep flags
+     * are boolean and can be concatenated like
+     * 11 or 01
+     */
+    if (typeRel === "a") {
+      if (values.length < comLengths[typeRel]) {
+        let lastFlag = values[values.length - 3].toString();
+        if (lastFlag.length > 1) {
+          let flagArr = lastFlag.split("");
+          values = [
+            values[0],
+            values[1],
+            values[2],
+            +flagArr[0],
+            +flagArr[1],
+            values[4],
+            values[5]
+          ];
+        }
+      }
+    }
+
+    // if string contains repeated shorthand commands - split them
+    let chunkSize = comLengths[typeRel];
+    let chunk = values.slice(0, chunkSize);
+    pathData.push({ type: type, values: chunk });
+
+    // too few values
+    if (chunk.length < chunkSize) {
+      errors.push(
+        `${i}. command (${type}) has ${chunk.length}/${chunkSize} values - ${chunkSize - chunk.length} too few`
+      );
+    }
+
+
+    // has implicit commands
+    let ideal = Math.floor(values.length/chunkSize)*chunkSize;
+    if (values.length > chunkSize) {
+      //count = chunkSize
+      let typeImplicit = type === "M" ? (isRel ? "l" : "L") : type;
+      for (let i = chunkSize; i < values.length; i += chunkSize) {
+        let chunk = values.slice(i, i + chunkSize);
+        pathData.push({ type: typeImplicit, values: chunk });
+
+        if (chunk.length !== chunkSize) {
+          errors.push(
+            `${i}. command (${type}) has ${chunk.length+chunkSize}/${chunkSize} - ${chunk.length} values too many `
+          );
+        }
+      }
+    }
+  }
+  if(errors.length){
+    console.log(errors);
+  }
+  return pathData;
 }
 
 /**
