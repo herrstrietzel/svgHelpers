@@ -575,6 +575,146 @@ function pathDataArcToCubic(p0, comValues, recursive = false) {
 
 
 /**
+ * converts all commands to absolute
+ * optional: convert shorthands; arcs to cubics 
+ */
+
+function normalizePathData(pathData, unshort = true, convertArcs = false) {
+    let pathDataAbs = [];
+    let offX = 0;
+    let offY = 0;
+    let lastX = pathData[0].values[0];
+    let lastY = pathData[0].values[1];
+
+    pathData.forEach((com, i) => {
+        let { type, values } = com;
+        let typeRel = type.toLowerCase();
+        let typeAbs = type.toUpperCase();
+        let valuesL = values.length;
+        let isRelative = type === typeRel;
+        let comPrev = i > 0 ? pathData[i - 1] : pathData[0];
+        let valuesPrev = comPrev.values;
+        let valuesPrevL = valuesPrev.length;
+
+
+        if (isRelative) {
+            com.type = typeAbs;
+
+            switch (typeRel) {
+                case "a":
+                    com.values = [
+                        values[0],
+                        values[1],
+                        values[2],
+                        values[3],
+                        values[4],
+                        values[5] + offX,
+                        values[6] + offY
+                    ];
+                    break;
+
+
+                case "h":
+                case "v":
+                    com.values = type === 'h' ? [values[0] + offX] : [values[0] + offY];
+                    break;
+
+
+                case 'm':
+                case 'l':
+                case 't':
+                    com.values = [values[0] + offX, values[1] + offY]
+                    break;
+
+                case "c":
+                    com.values = [
+                        values[0] + offX,
+                        values[1] + offY,
+                        values[2] + offX,
+                        values[3] + offY,
+                        values[4] + offX,
+                        values[5] + offY
+                    ];
+                    break;
+
+                case "q":
+                case "s":
+                    com.values = [
+                        values[0] + offX,
+                        values[1] + offY,
+                        values[2] + offX,
+                        values[3] + offY,
+                    ];
+                    break;
+            }
+        }
+        // is absolute
+        else {
+            offX = 0;
+            offY = 0;
+        }
+
+        /**
+         * convert shorthands
+         */
+        unshort = true;
+        if (unshort) {
+
+            let cp1X, cp1Y, cpN1X, cpN1Y, cp2X, cp2Y;
+
+            if (com.type === 'H' || com.type === 'V') {
+                com.values = com.type === 'H' ? [com.values[0], lastY] : [lastX, com.values[0]];
+                com.type = 'L';
+            }
+
+            else if (com.type === 'T' || com.type === 'S') {
+
+                [cp1X, cp1Y] = [valuesPrev[0], valuesPrev[1]];
+                [cp2X, cp2Y] = valuesPrevL > 2 ? [valuesPrev[2], valuesPrev[3]] : [valuesPrev[0], valuesPrev[1]];
+
+                // new control point
+                cpN1X = com.type === 'T' ? lastX + (lastX - cp1X) : 2 * lastX - cp2X;
+                cpN1Y = com.type === 'T' ? lastY + (lastY - cp1Y) : 2 * lastY - cp2Y;
+
+                com.values = [cpN1X, cpN1Y, com.values].flat();
+                com.type = com.type === 'T' ? 'Q' : 'C';
+            }
+        }
+
+
+        //convert arcs to cubics
+        if (convertArcs && com.type === 'A') {
+
+            let p0 = {
+                x: lastX,
+                y: lastY
+            };
+
+            // add all C commands instead of Arc
+            let cubicArcs = arcCommandToBezier(p0, com.values);
+            cubicArcs.forEach((cubicArc) => {
+                pathDataAbs.push(cubicArc);
+            });
+
+        } else {
+            // add command
+            pathDataAbs.push(com)
+        }
+
+        // update offsets
+        lastX = valuesL > 1 ? values[valuesL - 2] + offX : (typeRel === 'h' ? values[0] + offX : lastX);
+        lastY = valuesL > 1 ? values[valuesL - 1] + offY : (typeRel === 'v' ? values[0] + offY : lastY);
+        offX = lastX;
+        offY = lastY;
+
+    });
+
+    return pathDataAbs;
+
+}
+
+
+/**
  * decompose/convert shorthands to "longhand" commands:
  * H, V, S, T => L, L, C, Q
  * reversed method: pathDataToShorthands()
@@ -792,6 +932,9 @@ function pathDataToShorthands(pathData) {
     }
     return pathDataShorts;
 }
+
+
+
 
 
 /**
