@@ -573,6 +573,164 @@ function pathDataArcToCubic(p0, comValues, recursive = false) {
 };
 
 
+/** 
+ * convert arctocommands to cubic bezier
+ * based on a2c.js
+ * https://github.com/fontello/svgpath/blob/master/lib/a2c.js
+ * returns pathData array
+*/
+function arcToBezier(p0, values, splitSegments = 1,  quadratic=false) {
+    const TAU = Math.PI * 2;
+
+    p0 = Array.isArray(p0) ? {x:p0[0], y:p0[1]} : p0;
+    let [px, py] = [p0.x, p0.y];
+    let [rx, ry, xAxisRotation, largeArcFlag, sweepFlag, cx, cy] = values;
+
+    if (rx === 0 || ry === 0) {
+        return []
+    }
+
+    let phi = xAxisRotation * TAU / 360
+    let sinphi = Math.sin(phi)
+    let cosphi = Math.cos(phi)
+
+    let pxp = cosphi * (px - cx) / 2 + sinphi * (py - cy) / 2
+    let pyp = -sinphi * (px - cx) / 2 + cosphi * (py - cy) / 2
+
+    if (pxp === 0 && pyp === 0) {
+        return []
+    }
+    rx = Math.abs(rx)
+    ry = Math.abs(ry)
+    let lambda =
+        pxp * pxp / (rx * rx) +
+        pyp * pyp / (ry * ry)
+    if (lambda > 1) {
+        let lambdaRt = Math.sqrt(lambda);
+        rx *= lambdaRt
+        ry *= lambdaRt
+    }
+    let [centerx, centery, ang1, ang2] = getArcCenter(p0, cx, cy, rx, ry, largeArcFlag, sweepFlag, sinphi, cosphi, pxp, pyp)
+
+    // If 'ang2' == 90.0000000001, then `ratio` will evaluate to
+    // 1.0000000001. This causes `segments` to be greater than one, which is an
+    // unecessary split, and adds extra points to the bezier curve. To alleviate
+    // this issue, we round to 1.0 when the ratio is close to 1.0.
+    let ratio = Math.abs(ang2) / (TAU / 4)
+    if (Math.abs(1 - ratio) < 0.0000001) {
+        ratio = 1
+    }
+
+    const interpolate = (p1, p2, t) => {
+        let pt = {
+            x: (p2.x - p1.x) * t + p1.x,
+            y: (p2.y - p1.y) * t + p1.y
+        };
+        return pt
+    }
+
+    // increase segments for more accureate length calculations
+    splitSegments = quadratic ? splitSegments*2 : splitSegments;
+    let segments = Math.max(Math.ceil(ratio * splitSegments), 1);
+    ang2 /= segments
+
+    let pathData = [];
+
+    for (let i = 0; i < segments; i++) {
+        let curve = approxUnitArc(ang1, ang2);
+
+        // get commands: mapToEllipse
+        let com = !quadratic ? { type: 'C', values: [] } : { type: 'Q', values: [] }
+
+        let pts = []
+        curve.forEach((pt, i) => {
+            let x = pt.x * rx
+            let y = pt.y * ry
+            pts.push({ x: cosphi * x - sinphi * y + centerx, y: sinphi * x + cosphi * y + centery })
+        })
+
+        let [cp1, cp2, p] = pts;
+        let c = 0.55191502449;
+        cp1 = quadratic ? interpolate(p0 , cp1, 1+c) : cp1;
+        com.values = !quadratic ? [cp1.x, cp1.y, cp2.x, cp2.y, p.x, p.y] : [cp1.x, cp1.y, p.x, p.y]
+
+        pathData.push(com);
+        ang1 += ang2
+        p0 = p
+    }
+
+    return pathData;
+}
+
+
+// helpers
+function vectorAngle(ux, uy, vx, vy) {
+    let sign = (ux * vy - uy * vx < 0) ? -1 : 1
+    let dot = ux * vx + uy * vy
+    dot = dot > 1 ? 1 : (dot < -1 ? -1 : dot)
+    return sign * Math.acos(dot)
+}
+
+function getArcCenter(p0, cx, cy, rx, ry, largeArcFlag, sweepFlag, sinphi, cosphi, pxp, pyp) {
+    let [px, py] = Array.isArray(p0) ? p0 : [p0.x, p0.y];
+    let rxsq = rx * rx,
+        rysq = ry * ry
+    let pxpsq = pxp * pxp,
+        pypsq = pyp * pyp
+    let radicant = (rxsq * rysq) - (rxsq * pypsq) - (rysq * pxpsq)
+    if (radicant < 0) {
+        radicant = 0
+    } else {
+        radicant /= (rxsq * pypsq) + (rysq * pxpsq)
+        radicant = Math.sqrt(radicant) * (largeArcFlag === sweepFlag ? -1 : 1)
+    }
+
+    let centerxp = radicant * rx / ry * pyp,
+        centeryp = radicant * -ry / rx * pxp
+    let centerx = cosphi * centerxp - sinphi * centeryp + (px + cx) / 2,
+        centery = sinphi * centerxp + cosphi * centeryp + (py + cy) / 2
+    let vx1 = (pxp - centerxp) / rx,
+        vy1 = (pyp - centeryp) / ry,
+        vx2 = (-pxp - centerxp) / rx,
+        vy2 = (-pyp - centeryp) / ry
+
+    let ang1 = vectorAngle(1, 0, vx1, vy1),
+        ang2 = vectorAngle(vx1, vy1, vx2, vy2)
+
+    if (sweepFlag === 0 && ang2 > 0) {
+        ang2 -= Math.PI * 2
+    }
+    else if (sweepFlag === 1 && ang2 < 0) {
+        ang2 += Math.PI * 2
+    }
+    return [centerx, centery, ang1, ang2]
+}
+
+function approxUnitArc(ang1, ang2) {
+    // If 90 degree circular arc, use a consMath.tant
+    // as derived from http://spencermortensen.com/articles/bezier-circle
+    const ANGLE_90_DEGREES = 1.570796327;
+
+    let a = ang2 === ANGLE_90_DEGREES ?
+        0.551915024494 :
+        (
+            ang2 === -ANGLE_90_DEGREES ?
+                -0.551915024494 :
+                4 / 3 * Math.tan(ang2 / 4)
+        );
+
+    let x1 = Math.cos(ang1);
+    let y1 = Math.sin(ang1);
+    let x2 = Math.cos(ang1 + ang2);
+    let y2 = Math.sin(ang1 + ang2);
+    return [
+        { x: x1 - y1 * a, y: y1 + x1 * a },
+        { x: x2 + y2 * a, y: y2 - x2 * a },
+        { x: x2, y: y2 }
+    ];
+}
+
+
 
 /**
  * converts all commands to absolute
