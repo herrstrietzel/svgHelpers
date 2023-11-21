@@ -737,7 +737,7 @@ function approxUnitArc(ang1, ang2) {
  * optional: convert shorthands; arcs to cubics 
  */
 
-function normalizePathData(pathData, unshort = true, convertArcs = false) {
+function normalizePathData2(pathData, unshort = true, convertArcs = false) {
     let pathDataAbs = [];
     let offX = 0;
     let offY = 0;
