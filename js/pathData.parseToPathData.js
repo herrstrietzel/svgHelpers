@@ -396,15 +396,15 @@ function arcToBezier(p0, values, splitSegments = 1, quadratic = false) {
     let pathData = [];
 
 
-    // If 90 degree circular arc, use a consMath.tant
-    // as derived from http://spencermortensen.com/articles/bezier-circle
-    // c≈0.5519150244935105707435627
+    // If 90 degree circular arc, use a constant
+    // https://pomax.github.io/bezierinfo/#circles_cubic
+    // k=0.551784777779014
 
     const angle90 = 1.5707963267948966;
-    const c = 0.5519150244935106
-    let a = ang2 === angle90 ? c :
+    const k = 0.551785 
+    let a = ang2 === angle90 ? k :
         (
-            ang2 === -angle90 ? -c : 4 / 3 * Math.tan(ang2 / 4)
+            ang2 === -angle90 ? -k : 4 / 3 * Math.tan(ang2 / 4)
         );
 
     let cos2 = ang2 ? Math.cos(ang2) : 1;
