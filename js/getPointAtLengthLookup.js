@@ -195,13 +195,13 @@ function getPathLengthFromD(d) {
         arcAccuracy: 1
     }
     pathData = normalizePathData(pathData, options)
-    let pathDataLength = getPAthDataLength(pathData)
+    let pathDataLength = getPathDataLength(pathData)
 
     return pathDataLength
 }
 
 // only total pathlength
-function getPAthDataLength(pathData) {
+function getPathDataLength(pathData) {
     // get pathdata
     let pathLength = 0;
     let M = pathData[0];
