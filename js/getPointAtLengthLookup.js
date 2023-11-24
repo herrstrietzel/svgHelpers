@@ -2,7 +2,6 @@
 * calculate point at Length 
 * from length at t lookup
 */
-
 function getPointAtLengthLookup(pathLengthLookup, length) {
     let { segments, totalLength } = pathLengthLookup;
     let foundSegment = false;
@@ -88,69 +87,29 @@ function getPointAtLengthLookup(pathLengthLookup, length) {
     return pt;
 }
 
+function getPAthLengthLookup(d, tDivisions = 36, precision = 1) {
+    // get pathdata
+    let pathData = parseDtoPathData(d);
 
-    function getPAthDataLength(pathData) {
-      // get pathdata
-      let pathLength = 0;
-      let M = pathData[0];
+    // needs normalisation?
+    let hasRel = /[astvzqmhlc]/g.test(d);
+    let hasShorthands = /[hstv]/gi.test(d);
+    let hasArcs = /[a]/gi.test(d);
 
-      //let off = 0;
-      for (let i = 1; i < pathData.length; i++) {
-        let comPrev = pathData[i - 1];
-        let valuesPrev = comPrev.values;
-        let valuesPrevL = valuesPrev.length;
-        let p0 = { x: valuesPrev[valuesPrevL - 2], y: valuesPrev[valuesPrevL - 1] };
-
-        let com = pathData[i];
-        let { type, values } = com;
-        let valuesL = values.length;
-        let p = { x: values[valuesL - 2], y: values[valuesL - 1] };
-        let len, cp1, cp2, t;
-
-        // interpret closePath as lineto
-        switch (type) {
-          case "M":
-            // new M
-            M = pathData[i];
-            len = 0;
-            break;
-
-          case "Z":
-            // line to previous M
-            p = { x: M.values[0], y: M.values[1] };
-            len = getLineLength(p0, p);
-            break;
-
-          case "L":
-            len = getLineLength(p0, p);
-            break;
-
-          case "C":
-          case "Q":
-            cp1 = { x: values[0], y: values[1] };
-            cp2 = type === 'C' ? { x: values[2], y: values[3] } : cp1;
-            len = type === 'C' ? cubicBezierLength(p0, cp1, cp2, p, 1) : quadraticBezierLength(p0, cp1, p, 1);
-            break;
-          default:
-            len = 0;
-            break;
+    if (hasRel || hasShorthands || hasArcs) {
+        let options = {
+            convertQuadratic: false,
+            convertArc: hasArcs,
+            unshort: hasShorthands,
+            arcAccuracy: precision
         }
-        pathLength += len;
-      }
-      return pathLength;
+        pathData = normalizePathData(pathData, options)
     }
 
-
-
-
-function getPAthLengthLookup(d, tDivisions = 10) {
-    // get pathdata
-    let pathData = getPathDataNorm(d);
     let pathLength = 0;
     let M = pathData[0];
     let lengthLookup = { totalLength: 0, segments: [] };
 
-    //let off = 0;
     for (let i = 1; i < pathData.length; i++) {
         let comPrev = pathData[i - 1];
         let valuesPrev = comPrev.values;
@@ -164,8 +123,6 @@ function getPAthLengthLookup(d, tDivisions = 10) {
         let len, cp1, cp2, t;
 
         // collect segment data in object
-        if (type !== "M") {
-        }
         let lengthObj = {
             lengths: [],
             points: [],
@@ -207,7 +164,6 @@ function getPAthLengthLookup(d, tDivisions = 10) {
                     let bezierLength = type === 'C' ?
                         cubicBezierLength(p0, cp1, cp2, p, t) :
                         quadraticBezierLength(p0, cp1, p, t);
-                    //lengthObj.lengths.push( +(bezierLength + pathLength).toFixed(3) );
                     lengthObj.lengths.push((bezierLength + pathLength));
                 }
                 lengthObj.points = points;
@@ -222,7 +178,6 @@ function getPAthLengthLookup(d, tDivisions = 10) {
         pathLength += len;
 
         if (type !== "M" && type !== "A") {
-
             lengthLookup.segments.push(lengthObj);
         }
         lengthLookup.totalLength = pathLength;
@@ -230,29 +185,92 @@ function getPAthLengthLookup(d, tDivisions = 10) {
     return lengthLookup;
 }
 
+
+function getPathLengthFromD(d) {
+    let pathData = parseDtoPathData(d);
+    let options = {
+        convertQuadratic: false,
+        convertArc: true,
+        unshort: true,
+        arcAccuracy: 1
+    }
+    pathData = normalizePathData(pathData, options)
+    let pathDataLength = getPAthDataLength(pathData)
+
+    return pathDataLength
+}
+
+// only total pathlength
+function getPAthDataLength(pathData) {
+    // get pathdata
+    let pathLength = 0;
+    let M = pathData[0];
+
+    //let off = 0;
+    for (let i = 1; i < pathData.length; i++) {
+        let comPrev = pathData[i - 1];
+        let valuesPrev = comPrev.values;
+        let valuesPrevL = valuesPrev.length;
+        let p0 = { x: valuesPrev[valuesPrevL - 2], y: valuesPrev[valuesPrevL - 1] };
+
+        let com = pathData[i];
+        let { type, values } = com;
+        let valuesL = values.length;
+        let p = { x: values[valuesL - 2], y: values[valuesL - 1] };
+        let len, cp1, cp2, t;
+
+        // interpret closePath as lineto
+        switch (type) {
+            case "M":
+                // new M
+                M = pathData[i];
+                len = 0;
+                break;
+
+            case "Z":
+                // line to previous M
+                p = { x: M.values[0], y: M.values[1] };
+                len = getLineLength(p0, p);
+                break;
+
+            case "L":
+                len = getLineLength(p0, p);
+                break;
+
+            case "C":
+            case "Q":
+                cp1 = { x: values[0], y: values[1] };
+                cp2 = type === 'C' ? { x: values[2], y: values[3] } : cp1;
+                len = type === 'C' ? cubicBezierLength(p0, cp1, cp2, p, 1) : quadraticBezierLength(p0, cp1, p, 1);
+                break;
+            default:
+                len = 0;
+                break;
+        }
+        pathLength += len;
+    }
+    return pathLength;
+}
+
+
+
+
 /**
  * Based on snap.svg bezlen() function
  * https://github.com/adobe-webplatform/Snap.svg/blob/master/dist/snap.svg.js#L5786
  */
-
-
-
-    /**
-     * Based on snap.svg bezlen() function
-     * https://github.com/adobe-webplatform/Snap.svg/blob/master/dist/snap.svg.js#L5786
-     */
-    function cubicBezierLength(p0, cp1, cp2, p, t = 1) {
-      if (t === 0) {
+function cubicBezierLength(p0, cp1, cp2, p, t = 1) {
+    if (t === 0) {
         return 0;
-      }
-      const base3 = (t, p1, p2, p3, p4) => {
+    }
+    const base3 = (t, p1, p2, p3, p4) => {
         let t1 = -3 * p1 + 9 * p2 - 9 * p3 + 3 * p4,
-          t2 = t * t1 + 6 * p1 - 12 * p2 + 6 * p3;
+            t2 = t * t1 + 6 * p1 - 12 * p2 + 6 * p3;
         return t * t2 - 3 * p1 + 3 * p2;
-      };
-      t = t > 1 ? 1 : t < 0 ? 0 : t;
-      let t2 = t / 2;
-      let Tvalues = [
+    };
+    t = t > 1 ? 1 : t < 0 ? 0 : t;
+    let t2 = t / 2;
+    let Tvalues = [
         -0.0640568928626056260850430826247450385909,
         0.0640568928626056260850430826247450385909,
         -0.1911188674736163091586398207570696318404,
@@ -277,8 +295,8 @@ function getPAthLengthLookup(d, tDivisions = 10) {
         0.9747285559713094981983919930081690617411,
         -0.9951872199970213601799974097007368118745,
         0.9951872199970213601799974097007368118745
-      ];
-      let Cvalues = [
+    ];
+    let Cvalues = [
         0.1279381953467521569740561652246953718517,
         0.1279381953467521569740561652246953718517,
         0.1258374563468282961213753825111836887264,
@@ -303,20 +321,21 @@ function getPAthLengthLookup(d, tDivisions = 10) {
         0.0285313886289336631813078159518782864491,
         0.0123412297999871995468056670700372915759,
         0.0123412297999871995468056670700372915759
-      ];
+    ];
 
 
-      let n = Tvalues.length;
-      let sum = 0;
-      for (let i = 0; i < n; i++) {
+    let n = Tvalues.length;
+    let sum = 0;
+    for (let i = 0; i < n; i++) {
         let ct = t2 * Tvalues[i] + t2,
-          xbase = base3(ct, p0.x, cp1.x, cp2.x, p.x),
-          ybase = base3(ct, p0.y, cp1.y, cp2.y, p.y),
-          comb = xbase * xbase + ybase * ybase;
+            xbase = base3(ct, p0.x, cp1.x, cp2.x, p.x),
+            ybase = base3(ct, p0.y, cp1.y, cp2.y, p.y),
+            comb = xbase * xbase + ybase * ybase;
         sum += Cvalues[i] * Math.sqrt(comb);
-      }
-      return t2 * sum;
     }
+    return t2 * sum;
+}
+
 
 function quadraticBezierLength(p0, cp1, p, t = 1) {
     if (t === 0) {
@@ -380,21 +399,12 @@ function getLineLength(p1, p2) {
  * Linear  interpolation (LERP) helper
  */
 function interpolatedPoint(p1, p2, t = 0.5) {
-    //t: 0.5 - point in the middle
-    if (Array.isArray(p1)) {
-        p1.x = p1[0];
-        p1.y = p1[1];
-    }
-    if (Array.isArray(p2)) {
-        p2.x = p2[0];
-        p2.y = p2[1];
-    }
-    let [x, y] = [(p2.x - p1.x) * t + p1.x, (p2.y - p1.y) * t + p1.y];
     return {
-        x: x,
-        y: y
+        x: (p2.x - p1.x) * t + p1.x,
+        y: (p2.y - p1.y) * t + p1.y
     };
 }
+
 
 /**
  * calculate single points on segments
@@ -424,434 +434,384 @@ function getPointAtQuadraticSegmentT(p0, cp1, p, t = 0.5) {
 }
 
 /**
- * parse pathdata normalized
- */
-function getPathDataNorm(d) {
-    let hasRel = /[astvzqmhlc]/g.test(d);
-    let hasShorthands = /[hstv]/gi.test(d);
-    let hasArcsOrQuadratic = /[aqt]/gi.test(d);
-    let pathData = getPathData(d);
-    if (hasRel) {
-        pathData = pathDataToAbsolute(pathData);
+ * parse pathData from d attribute
+ **/
+function parseDtoPathData(d) {
+    let dClean = d
+        // remove new lines and tabs
+        .replace(/[\n\r\t]/g, "")
+        // replace comma with space
+        .replace(/,/g, " ")
+        // add space before minus sign
+        .replace(/(\d+)(\-)/g, "$1 $2")
+        // decompose multiple adjacent decimal delimiters like 0.5.5.5 => 0.5 0.5 0.5
+        .replace(/(\.)(?=(\d+\.\d+)+)(\d+)/g, "$1$3 ")
+        // add new lines before valid command letters
+        .replace(/([mlcsqtahvz])/gi, "\n$1 ")
+        // remove duplicate whitespace
+        .replace(/\ {2,}/g, " ")
+        // remove whitespace from right and left
+        .trim();
+
+    // split commands
+    let commands = dClean.split("\n").map((val) => {
+        return val.trim();
+    });
+
+    // compile pathData
+    let pathData = [];
+    let comLengths = {
+        m: 2,
+        a: 7,
+        c: 6,
+        h: 1,
+        l: 2,
+        q: 4,
+        s: 4,
+        t: 2,
+        v: 1,
+        z: 0
+    };
+
+    let errors = [];
+
+    for (let i = 0; i < commands.length; i++) {
+        let com = commands[i].split(" ");
+        let type = com.shift();
+        let typeRel = type.toLowerCase();
+        let isRel = type === typeRel;
+
+        /**
+         * long arc and sweep flags
+         * are boolean and can be concatenated like
+         * 11 or 01
+         */
+        if (typeRel === "a") {
+            if (com.length < comLengths[typeRel]) {
+                let lastFlag = com[3];
+                if (lastFlag.length > 1) {
+                    let flagArr = lastFlag.split("");
+                    com = [
+                        com[0],
+                        com[1],
+                        com[2],
+                        +flagArr[0],
+                        +flagArr[1],
+                        com[4],
+                        com[5]
+                    ];
+                }
+            }
+        }
+
+        // convert to numbers
+        let values = com.map((val) => {
+            return parseFloat(val);
+        });
+
+        // if string contains repeated shorthand commands - split them
+        let chunkSize = comLengths[typeRel];
+        let chunk = values.slice(0, chunkSize);
+        pathData.push({ type: type, values: chunk });
+
+        // too few values
+        if (chunk.length < chunkSize) {
+            errors.push(
+                `${i}. command (${type}) has ${chunk.length}/${chunkSize} values - ${chunkSize - chunk.length} too few`
+            );
+        }
+
+        // has implicit commands
+        if (values.length > chunkSize) {
+            let typeImplicit = type === "M" ? (isRel ? "l" : "L") : type;
+            for (let i = chunkSize; i < values.length; i += chunkSize) {
+                let chunk = values.slice(i, i + chunkSize);
+                pathData.push({ type: typeImplicit, values: chunk });
+                if (chunk.length !== chunkSize) {
+                    errors.push(
+                        `${i}. command (${type}) has ${chunk.length + chunkSize}/${chunkSize} - ${chunk.length} values too many `
+                    );
+                }
+            }
+        }
     }
-    if (hasShorthands) {
-        pathData = pathDataToLonghands(pathData);
+    if (errors.length) {
+        console.log(errors);
     }
 
-    if (hasArcsOrQuadratic) {
-        pathData = pathDataToCubic(pathData, false);
-    }
+    /**
+     * first M is always absolute/uppercase -
+     * unless it adds relative linetos
+     * (facilitates d concatenating)
+     */
+    pathData[0].type = 'M'
     return pathData;
 }
 
 /**
- * normalize to all absolute, cubic, no shorthand
+ * converts all commands to absolute
+ * optional: convert shorthands; arcs to cubics 
  */
-function pathDataToCubic(pathData, convertQuadratic = true) {
-    let pathDataNorm = [];
+
+function normalizePathData(pathData, options) {
+    let pathDataAbs = [];
+    let offX = 0;
+    let offY = 0;
+    let lastX = pathData[0].values[0];
+    let lastY = pathData[0].values[1];
+
+    // merge default options
+    options = {
+        ...{ unshort: true, convertArc: false, arcAccuracy: 1 },
+        ...options
+    }
+    let { unshort, convertArc, arcAccuracy } = options
+
     pathData.forEach((com, i) => {
-        let [type, values] = [com.type, com.values];
-        let comPrev = i > 0 ? pathData[i - 1] : pathData[i];
+        let { type, values } = com;
+        let typeRel = type.toLowerCase();
+        let typeAbs = type.toUpperCase();
+        let valuesL = values.length;
+        let isRelative = type === typeRel;
+        let comPrev = i > 0 ? pathData[i - 1] : pathData[0];
         let valuesPrev = comPrev.values;
         let valuesPrevL = valuesPrev.length;
-        let p0 = {
-            x: valuesPrev[valuesPrevL - 2],
-            y: valuesPrev[valuesPrevL - 1]
-        };
-        // convert arc to cubics
-        if (type === "A") {
-            let cubicArcs = arcCommandToBezier(p0, values);
-            cubicArcs.forEach((cubicArc) => {
-                pathDataNorm.push(cubicArc);
-            });
-        }
 
-        else if (type === "Q" && convertQuadratic) {
-            pathDataNorm.push(pathDataQuadratic2Cubic(p0, values));
-        }
+        if (isRelative) {
+            com.type = typeAbs;
 
+            switch (typeRel) {
+                case "a":
+                    com.values = [
+                        values[0],
+                        values[1],
+                        values[2],
+                        values[3],
+                        values[4],
+                        values[5] + offX,
+                        values[6] + offY
+                    ];
+                    break;
+
+
+                case "h":
+                case "v":
+                    com.values = type === 'h' ? [values[0] + offX] : [values[0] + offY];
+                    break;
+
+
+                case 'm':
+                case 'l':
+                case 't':
+                    com.values = [values[0] + offX, values[1] + offY]
+                    break;
+
+                case "c":
+                    com.values = [
+                        values[0] + offX,
+                        values[1] + offY,
+                        values[2] + offX,
+                        values[3] + offY,
+                        values[4] + offX,
+                        values[5] + offY
+                    ];
+                    break;
+
+                case "q":
+                case "s":
+                    com.values = [
+                        values[0] + offX,
+                        values[1] + offY,
+                        values[2] + offX,
+                        values[3] + offY,
+                    ];
+                    break;
+            }
+        }
+        // is absolute
         else {
-            pathDataNorm.push(com);
+            offX = 0;
+            offY = 0;
         }
+
+        /**
+         * convert shorthands
+         */
+        if (unshort) {
+            let cp1X, cp1Y, cpN1X, cpN1Y, cp2X, cp2Y;
+            if (com.type === 'H' || com.type === 'V') {
+                com.values = com.type === 'H' ? [com.values[0], lastY] : [lastX, com.values[0]];
+                com.type = 'L';
+            }
+            else if (com.type === 'T' || com.type === 'S') {
+
+                [cp1X, cp1Y] = [valuesPrev[0], valuesPrev[1]];
+                [cp2X, cp2Y] = valuesPrevL > 2 ? [valuesPrev[2], valuesPrev[3]] : [valuesPrev[0], valuesPrev[1]];
+
+                // new control point
+                cpN1X = com.type === 'T' ? lastX + (lastX - cp1X) : 2 * lastX - cp2X;
+                cpN1Y = com.type === 'T' ? lastY + (lastY - cp1Y) : 2 * lastY - cp2Y;
+
+                com.values = [cpN1X, cpN1Y, com.values].flat();
+                com.type = com.type === 'T' ? 'Q' : 'C';
+            }
+        }
+
+        //convert arcs to cubics
+        if (convertArc && com.type === 'A') {
+            // add all C commands instead of Arc
+            let cubicArcs = arcToBezier({ x: lastX, y: lastY }, com.values, arcAccuracy);
+            cubicArcs.forEach((cubicArc) => {
+                pathDataAbs.push(cubicArc);
+            });
+
+        } else {
+            // add command
+            pathDataAbs.push(com)
+        }
+
+        // update offsets
+        lastX = valuesL > 1 ? values[valuesL - 2] + offX : (typeRel === 'h' ? values[0] + offX : lastX);
+        lastY = valuesL > 1 ? values[valuesL - 1] + offY : (typeRel === 'v' ? values[0] + offY : lastY);
+        offX = lastX;
+        offY = lastY;
     });
-    return pathDataNorm;
+
+    return pathDataAbs;
 }
 
-/**
- * Based on: jkroso/parse-svg-path
- * https://github.com/jkroso/parse-svg-path
- * parse an svg path data string. Generates an Array
- * of commands where each command is an Array of the
- * form `{type:command, values:[]}`
- */
-function getPathData(d) {
 
-    var segment = /([astvzqmhlc])([^astvzqmhlc]*)/ig
-    var length = { a: 7, c: 6, h: 1, l: 2, m: 2, q: 4, s: 4, t: 2, v: 1, z: 0 }
-    let number = /-?[0-9]*\.?[0-9]+(?:e[-+]?\d+)?/ig
+/** 
+ * convert arctocommands to cubic bezier
+ * based on a2c.js
+ * https://github.com/fontello/svgpath/blob/master/lib/a2c.js
+ * returns pathData array
+*/
 
-    function parseValues(args) {
-        var numbers = args.match(number)
-        return numbers ? numbers.map(Number) : []
+function arcToBezier(p0, values, splitSegments = 1) {
+    const TAU = Math.PI * 2;
+    let [rx, ry, rotation, largeArcFlag, sweepFlag, x, y] = values;
+
+    if (rx === 0 || ry === 0) {
+        return []
     }
 
+    let phi = rotation ? rotation * TAU / 360 : 0;
+    let sinphi = phi ? Math.sin(phi) : 0
+    let cosphi = phi ? Math.cos(phi) : 1
+    let pxp = cosphi * (p0.x - x) / 2 + sinphi * (p0.y - y) / 2
+    let pyp = -sinphi * (p0.x - x) / 2 + cosphi * (p0.y - y) / 2
+
+    if (pxp === 0 && pyp === 0) {
+        return []
+    }
+    rx = Math.abs(rx)
+    ry = Math.abs(ry)
+    let lambda =
+        pxp * pxp / (rx * rx) +
+        pyp * pyp / (ry * ry)
+    if (lambda > 1) {
+        let lambdaRt = Math.sqrt(lambda);
+        rx *= lambdaRt
+        ry *= lambdaRt
+    }
+
+    /** 
+     * parametrize arc to 
+     * get center point start and end angles
+     */
+    let rxsq = rx * rx,
+        rysq = rx === ry ? rxsq : ry * ry
+
+    let pxpsq = pxp * pxp,
+        pypsq = pyp * pyp
+    let radicant = (rxsq * rysq) - (rxsq * pypsq) - (rysq * pxpsq)
+
+    if (radicant <= 0) {
+        radicant = 0
+    } else {
+        radicant /= (rxsq * pypsq) + (rysq * pxpsq)
+        radicant = Math.sqrt(radicant) * (largeArcFlag === sweepFlag ? -1 : 1)
+    }
+
+    let centerxp = radicant ? radicant * rx / ry * pyp : 0
+    let centeryp = radicant ? radicant * -ry / rx * pxp : 0
+    let centerx = cosphi * centerxp - sinphi * centeryp + (p0.x + x) / 2
+    let centery = sinphi * centerxp + cosphi * centeryp + (p0.y + y) / 2
+
+    let vx1 = (pxp - centerxp) / rx
+    let vy1 = (pyp - centeryp) / ry
+    let vx2 = (-pxp - centerxp) / rx
+    let vy2 = (-pyp - centeryp) / ry
+
+    // get start and end angle
+    const vectorAngle = (ux, uy, vx, vy) => {
+        let dot = +(ux * vx + uy * vy).toFixed(9)
+        if (dot === 1 || dot === -1) {
+            return dot === 1 ? 0 : Math.PI
+        }
+        dot = dot > 1 ? 1 : (dot < -1 ? -1 : dot)
+        let sign = (ux * vy - uy * vx < 0) ? -1 : 1
+        return sign * Math.acos(dot);
+    }
+
+    let ang1 = vectorAngle(1, 0, vx1, vy1),
+        ang2 = vectorAngle(vx1, vy1, vx2, vy2)
+
+    if (sweepFlag === 0 && ang2 > 0) {
+        ang2 -= Math.PI * 2
+    }
+    else if (sweepFlag === 1 && ang2 < 0) {
+        ang2 += Math.PI * 2
+    }
+
+    let ratio = +(Math.abs(ang2) / (TAU / 4)).toFixed(0)
+
+    // increase segments for more accureate length calculations
+    let segments = ratio * splitSegments;
+    ang2 /= segments
     let pathData = [];
 
-    d.replace(segment, function (_, command, args) {
-        var type = command.toLowerCase()
-        args = parseValues(args)
 
-        // overloaded moveTo
-        if (type == 'm' && args.length > 2) {
-            pathData.push({ type: command, values: args.splice(0, 2) })
-            type = 'l'
-            command = command == 'm' ? 'l' : 'L'
-        }
-
-        while (true) {
-
-            /**
-             * long arc and sweep flags 
-             * are boolean and can be concatenated like
-             * 11 or 01
-             */
-            if (type === 'a' && args.length < length[type]) {
-                let flagArr = args[3].toString().split("");
-                args = [args[0], args[1], args[2], +flagArr[0], +flagArr[1], args[4], args[5]];
-            }
-
-            if (args.length == length[type]) {
-                let values = args.splice(0, length[type]);
-                return pathData.push({ type: command, values: values })
-            }
-
-            // still too few values
-            if (args.length < length[type]) {
-                throw new Error('malformed path data')
-            }
-
-            pathData.push({ type: command, values: args.splice(0, length[type]) })
-        }
-    })
-    return pathData
-}
-
-
-/**
- * This is a port of Dmitry Baranovskiy's 
- * pathToAbsolute method used in snap.svg
- * https://github.com/adobe-webplatform/Snap.svg/
- */
-function pathDataToAbsolute(pathData, decimals = -1) {
-    let M = pathData[0].values;
-    let x = M[0],
-        y = M[1],
-        mx = x,
-        my = y;
-    // loop through commands
-    for (let i = 1; i < pathData.length; i++) {
-        let com = pathData[i];
-        let { type, values } = com;
-        let typeAbs = type.toUpperCase();
-
-        if (type != typeAbs) {
-            type = typeAbs;
-            com.type = type;
-            // check current command types
-            switch (typeAbs) {
-                case "A":
-                    values[5] = +(values[5] + x);
-                    values[6] = +(values[6] + y);
-                    break;
-                case "V":
-                    values[0] = +(values[0] + y);
-                    break;
-
-                case "H":
-                    values[0] = +(values[0] + x);
-                    break;
-
-                case "M":
-                    mx = +values[0] + x;
-                    my = +values[1] + y;
-
-                default:
-                    // other commands
-                    if (values.length) {
-                        for (let v = 0; v < values.length; v++) {
-                            // even value indices are y coordinates
-                            values[v] = values[v] + (v % 2 ? y : x);
-                        }
-                    }
-            }
-        }
-        // is already absolute
-        let vLen = values.length;
-        switch (type) {
-            case "Z":
-                x = +mx;
-                y = +my;
-                break;
-            case "H":
-                x = values[0];
-                break;
-            case "V":
-                y = values[0];
-                break;
-            case "M":
-                mx = values[vLen - 2];
-                my = values[vLen - 1];
-
-            default:
-                x = values[vLen - 2];
-                y = values[vLen - 1];
-        }
-    }
-    // round coordinates
-    if (decimals >= 0) {
-        pathData = roundPathData(pathData, decimals);
-    }
-    return pathData;
-}
-
-/**
- * decompose/convert shorthands to "longhand" commands:
- * H, V, S, T => L, L, C, Q
- */
-function pathDataToLonghands(pathData) {
-    let pathDataLonghand = [];
-    let comPrev = {
-        type: "M",
-        values: pathData[0].values
-    };
-    pathDataLonghand.push(comPrev);
-    for (let i = 1; i < pathData.length; i++) {
-        let com = pathData[i];
-        let { type, values } = com;
-        let valuesL = values.length;
-        let valuesPrev = comPrev.values;
-        let valuesPrevL = valuesPrev.length;
-        let [x, y] = [values[valuesL - 2], values[valuesL - 1]];
-        let cp1X, cp1Y, cpN1X, cpN1Y, cpN2X, cpN2Y, cp2X, cp2Y;
-        let [prevX, prevY] = [
-            valuesPrev[valuesPrevL - 2],
-            valuesPrev[valuesPrevL - 1]
-        ];
-        switch (type) {
-            case "H":
-                comPrev = {
-                    type: "L",
-                    values: [values[0], prevY]
-                };
-                break;
-            case "V":
-                comPrev = {
-                    type: "L",
-                    values: [prevX, values[0]]
-                };
-                break;
-            case "T":
-                [cp1X, cp1Y] = [valuesPrev[0], valuesPrev[1]];
-                [prevX, prevY] = [
-                    valuesPrev[valuesPrevL - 2],
-                    valuesPrev[valuesPrevL - 1]
-                ];
-                // new control point
-                cpN1X = prevX + (prevX - cp1X);
-                cpN1Y = prevY + (prevY - cp1Y);
-                comPrev = {
-                    type: "Q",
-                    values: [cpN1X, cpN1Y, x, y]
-                };
-                break;
-            case "S":
-                [cp1X, cp1Y] = [valuesPrev[0], valuesPrev[1]];
-                [cp2X, cp2Y] =
-                    valuesPrevL > 2
-                        ? [valuesPrev[2], valuesPrev[3]]
-                        : [valuesPrev[0], valuesPrev[1]];
-                [prevX, prevY] = [
-                    valuesPrev[valuesPrevL - 2],
-                    valuesPrev[valuesPrevL - 1]
-                ];
-                // new control points
-                cpN1X = 2 * prevX - cp2X;
-                cpN1Y = 2 * prevY - cp2Y;
-                cpN2X = values[0];
-                cpN2Y = values[1];
-                comPrev = {
-                    type: "C",
-                    values: [cpN1X, cpN1Y, cpN2X, cpN2Y, x, y]
-                };
-                break;
-            default:
-                comPrev = {
-                    type: type,
-                    values: values
-                };
-        }
-        pathDataLonghand.push(comPrev);
-    }
-    return pathDataLonghand;
-}
-
-
-/**
-* convert Arcs to quadratic
-* or cubic beziers
-* recommended angle threshhold for quadratic: 22.5
-*/
-function arcCommandToBezier(p0, comValues, quadratic = false, angleThresh = 90, recursive = false) {
-    let [r1, r2, angle, largeArcFlag, sweepFlag, x2, y2] = comValues;
-    let [x1, y1] = [p0.x, p0.y];
-    const interpolate = (p1x, p1y, p2x, p2y, t) => {
-        let pt = {
-            x: (p2x - p1x) * t + p1x,
-            y: (p2y - p1y) * t + p1y
-        };
-        return pt
-    }
-    const degToRad = (degrees) => {
-        return (Math.PI * degrees) / 180;
-    };
-    const rotate = (x, y, angleRad) => {
-        let X = x * Math.cos(angleRad) - y * Math.sin(angleRad);
-        let Y = x * Math.sin(angleRad) + y * Math.cos(angleRad);
-        return {
-            x: X,
-            y: Y
-        };
-    };
-    let angleRad = degToRad(angle);
-    let params = [];
-    let x, y, f1, f2, cx, cy, h;
-    if (recursive) {
-        f1 = recursive[0];
-        f2 = recursive[1];
-        cx = recursive[2];
-        cy = recursive[3];
-    } else {
-        let p1 = rotate(x1, y1, -angleRad);
-        x1 = p1.x;
-        y1 = p1.y;
-        let p2 = rotate(x2, y2, -angleRad);
-        x2 = p2.x;
-        y2 = p2.y;
-        x = (x1 - x2) / 2;
-        y = (y1 - y2) / 2;
-        h = (x * x) / (r1 * r1) + (y * y) / (r2 * r2);
-        if (h > 1) {
-            h = Math.sqrt(h);
-            r1 = h * r1;
-            r2 = h * r2;
-        }
-        let sign = largeArcFlag === sweepFlag ? -1 : 1;
-        let r1Pow = r1 * r1;
-        let r2Pow = r2 * r2;
-        let left = r1Pow * r2Pow - r1Pow * y * y - r2Pow * x * x;
-        let right = r1Pow * y * y + r2Pow * x * x;
-        let k = sign * Math.sqrt(Math.abs(left / right));
-        cx = (k * r1 * y) / r2 + (x1 + x2) / 2;
-        cy = (k * -r2 * x) / r1 + (y1 + y2) / 2;
-        f1 = Math.asin(parseFloat(((y1 - cy) / r2).toFixed(9)));
-        f2 = Math.asin(parseFloat(((y2 - cy) / r2).toFixed(9)));
-        if (x1 < cx) {
-            f1 = Math.PI - f1;
-        }
-        if (x2 < cx) {
-            f2 = Math.PI - f2;
-        }
-        if (f1 < 0) {
-            f1 = Math.PI * 2 + f1;
-        }
-        if (f2 < 0) {
-            f2 = Math.PI * 2 + f2;
-        }
-        if (sweepFlag && f1 > f2) {
-            f1 = f1 - Math.PI * 2;
-        }
-        if (!sweepFlag && f2 > f1) {
-            f2 = f2 - Math.PI * 2;
-        }
-    }
-    let df = f2 - f1;
-    if (Math.abs(df) > (Math.PI * angleThresh) / 180) {
-        let f2old = f2;
-        let x2old = x2;
-        let y2old = y2;
-        f2 =
-            sweepFlag && f2 > f1 ?
-                (f2 = f1 + ((Math.PI * angleThresh) / 180) * 1) :
-                (f2 = f1 + ((Math.PI * angleThresh) / 180) * -1);
-        x2 = cx + r1 * Math.cos(f2);
-        y2 = cy + r2 * Math.sin(f2);
-        params = arcCommandToBezier({
-            x: x2,
-            y: y2
-        },
-            [r1, r2, angle, 0, sweepFlag, x2old, y2old],
-            quadratic,
-            angleThresh,
-            [f2, f2old, cx, cy]
+    // If 90 degree circular arc, use a constant
+    // https://pomax.github.io/bezierinfo/#circles_cubic
+    // k=0.551784777779014
+    const angle90 = 1.5707963267948966;
+    const k = 0.551785
+    let a = ang2 === angle90 ? k :
+        (
+            ang2 === -angle90 ? -k : 4 / 3 * Math.tan(ang2 / 4)
         );
-    }
-    df = f2 - f1;
-    let c1 = Math.cos(f1);
-    let s1 = Math.sin(f1);
-    let c2 = Math.cos(f2);
-    let s2 = Math.sin(f2);
-    let t = Math.tan(df / 4);
-    let hx = (4 / 3) * r1 * t;
-    let hy = (4 / 3) * r2 * t;
-    let m1 = [x1, y1];
-    let m2 = [x1 + hx * s1, y1 - hy * c1];
-    let m3 = [x2 + hx * s2, y2 - hy * c2];
-    let m4 = [x2, y2];
-    m2[0] = 2 * m1[0] - m2[0];
-    m2[1] = 2 * m1[1] - m2[1];
-    if (recursive) {
-        return [m2, m3, m4].concat(params);
-    } else {
-        params = [m2, m3, m4].concat(params);
-        let commands = [];
-        for (var i = 0; i < params.length; i += 3) {
-            r1 = rotate(params[i][0], params[i][1], angleRad);
-            r2 = rotate(params[i + 1][0], params[i + 1][1], angleRad);
-            r3 = rotate(params[i + 2][0], params[i + 2][1], angleRad);
-            let cp1Q = interpolate(r3.x, r3.y, r2.x, r2.y, 3 / 2)
-            if (quadratic) {
-                commands.push({
-                    type: 'Q',
-                    values: [cp1Q.x, cp1Q.y, r3.x, r3.y]
-                })
-            } else {
-                commands.push({
-                    type: "C",
-                    values: [r1.x, r1.y, r2.x, r2.y, r3.x, r3.y]
-                });
-            }
-        }
-        return commands;
-    }
-}
 
-/**
-* convert quadratic commands to cubic
-*/
-function pathDataQuadratic2Cubic(p0, com) {
-    if (Array.isArray(p0)) {
-        p0 = {
-            x: p0[0],
-            y: p0[1]
-        }
+    let cos2 = ang2 ? Math.cos(ang2) : 1;
+    let sin2 = ang2 ? Math.sin(ang2) : 0;
+    let type = 'C'
+
+    const approxUnitArc = (ang1, ang2, a, cos2, sin2) => {
+        let x1 = ang1 != ang2 ? Math.cos(ang1) : cos2;
+        let y1 = ang1 != ang2 ? Math.sin(ang1) : sin2;
+        let x2 = Math.cos(ang1 + ang2);
+        let y2 = Math.sin(ang1 + ang2);
+
+        return [
+            { x: x1 - y1 * a, y: y1 + x1 * a },
+            { x: x2 + y2 * a, y: y2 - x2 * a },
+            { x: x2, y: y2 }
+        ];
     }
-    let cp1 = {
-        x: p0.x + 2 / 3 * (com[0] - p0.x),
-        y: p0.y + 2 / 3 * (com[1] - p0.y)
+
+    for (let i = 0; i < segments; i++) {
+        let com = { type: type, values: [] }
+        let curve = approxUnitArc(ang1, ang2, a, cos2, sin2);
+
+        curve.forEach((pt) => {
+            let x = pt.x * rx
+            let y = pt.y * ry
+            com.values.push(cosphi * x - sinphi * y + centerx, sinphi * x + cosphi * y + centery)
+        })
+        pathData.push(com);
+        ang1 += ang2
     }
-    let cp2 = {
-        x: com[2] + 2 / 3 * (com[0] - com[2]),
-        y: com[3] + 2 / 3 * (com[1] - com[3])
-    }
-    return ({ type: "C", values: [cp1.x, cp1.y, cp2.x, cp2.y, com[2], com[3]] });
+
+    return pathData;
 }
