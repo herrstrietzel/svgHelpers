@@ -87,7 +87,7 @@ function getPointAtLengthLookup(pathLengthLookup, length) {
     return pt;
 }
 
-function getPAthLengthLookup(d, tDivisions = 36, precision = 1) {
+function getPathLengthLookup(d, tDivisions = 36, precision = 1) {
     // get pathdata
     let pathData = parseDtoPathData(d);
 
