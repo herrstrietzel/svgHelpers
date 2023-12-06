@@ -30,15 +30,8 @@ SVGGeometryElement.prototype.getPathData2 = function (options = {}) {
             y = this.y.baseVal.value;
             width = this.width.baseVal.value;
             height = this.height.baseVal.value;
-            rx = this.hasAttribute("rx") ? this.rx.baseVal.value : this.ry.baseVal.value;
-            ry = this.hasAttribute("ry") ? this.ry.baseVal.value : this.rx.baseVal.value;
-
-            if (rx > width / 2) {
-                rx = width / 2;
-            }
-            if (ry > height / 2) {
-                ry = height / 2;
-            }
+            rx = this.hasAttribute("rx") ? this.rx.baseVal.value : 0;
+            ry = this.hasAttribute("ry") ? this.ry.baseVal.value : rx;
 
             if (!rx && !ry) {
                 pathData = [
@@ -49,6 +42,14 @@ SVGGeometryElement.prototype.getPathData2 = function (options = {}) {
                     { type: "Z", values: [] }
                 ];
             } else {
+
+                if (rx > width / 2) {
+                    rx = width / 2;
+                }
+                if (ry > height / 2) {
+                    ry = height / 2;
+                }
+    
                 pathData = [
                     { type: "M", values: [x + rx, y] },
                     { type: "H", values: [x + width - rx] },
