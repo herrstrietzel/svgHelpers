@@ -435,6 +435,7 @@ function getPointAtQuadraticSegmentT(p0, cp1, p, t = 0.5) {
 
 /**
  * parse pathData from d attribute
+ * the core function to parse the pathData array from a d string
  **/
 function parseDtoPathData(d) {
     let dClean = d
@@ -460,20 +461,37 @@ function parseDtoPathData(d) {
 
     // compile pathData
     let pathData = [];
-    let comLengths = {
-        m: 2,
-        a: 7,
-        c: 6,
-        h: 1,
-        l: 2,
-        q: 4,
-        s: 4,
-        t: 2,
-        v: 1,
-        z: 0
-    };
-
+    let comLengths = { m: 2, a: 7, c: 6, h: 1, l: 2, q: 4, s: 4, t: 2, v: 1, z: 0 };
     let errors = [];
+
+    // normalize convatenated larceArc and sweep flags
+    const unravelArcValues = (values) => {
+        let chunksize = 7, n = 0, arcComs = []
+        for (let i = 0; i < values.length; i++) {
+            let com = values[i]
+
+            // reset counter
+            if (n >= chunksize) {
+                n = 0
+            }
+            // if 3. or 4. parameter longer than 1
+            if ((n === 3 || n === 4) && com.length > 1) {
+
+                let largeArc = n === 3 ? com.substring(0, 1) : ''
+                let sweep = n === 3 ? com.substring(1, 2) : com.substring(0, 1)
+                let finalX = n === 3 ? com.substring(2) : com.substring(1)
+                let comN = [largeArc, sweep, finalX].filter(Boolean)
+                arcComs.push(comN)
+                n += comN.length
+
+            } else {
+                // regular
+                arcComs.push(com)
+                n++
+            }
+        }
+        return arcComs.flat().filter(Boolean);
+    }
 
     for (let i = 0; i < commands.length; i++) {
         let com = commands[i].split(" ");
@@ -482,26 +500,14 @@ function parseDtoPathData(d) {
         let isRel = type === typeRel;
 
         /**
-         * long arc and sweep flags
+         * large arc and sweep flags
          * are boolean and can be concatenated like
          * 11 or 01
+         * or be concatenated with the final on path points like
+         * 1110 10 => 1 1 10 10
          */
         if (typeRel === "a") {
-            if (com.length < comLengths[typeRel]) {
-                let lastFlag = com[3];
-                if (lastFlag.length > 1) {
-                    let flagArr = lastFlag.split("");
-                    com = [
-                        com[0],
-                        com[1],
-                        com[2],
-                        +flagArr[0],
-                        +flagArr[1],
-                        com[4],
-                        com[5]
-                    ];
-                }
-            }
+            com = unravelArcValues(com)
         }
 
         // convert to numbers
@@ -523,7 +529,7 @@ function parseDtoPathData(d) {
 
         // has implicit commands
         if (values.length > chunkSize) {
-            let typeImplicit = type === "M" ? (isRel ? "l" : "L") : type;
+            let typeImplicit = typeRel === "m" ? (isRel ? "l" : "L") : type;
             for (let i = chunkSize; i < values.length; i += chunkSize) {
                 let chunk = values.slice(i, i + chunkSize);
                 pathData.push({ type: typeImplicit, values: chunk });
@@ -548,6 +554,7 @@ function parseDtoPathData(d) {
     return pathData;
 }
 
+
 /**
  * converts all commands to absolute
  * optional: convert shorthands; arcs to cubics 
@@ -555,10 +562,10 @@ function parseDtoPathData(d) {
 
 function normalizePathData(pathData, options) {
     let pathDataAbs = [];
-    let offX = 0;
-    let offY = 0;
     let lastX = pathData[0].values[0];
     let lastY = pathData[0].values[1];
+    let offX = lastX;
+    let offY = lastY;
 
     // merge default options
     options = {
