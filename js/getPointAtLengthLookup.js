@@ -81,7 +81,9 @@ function getPointAtLengthLookup(pathLengthLookup, length) {
 
                     }
                     break;
-            }
+                }
+                pt.index = segment.index;
+                pt.t = newT;
         }
     }
     return pt;
@@ -126,6 +128,7 @@ function getPathLengthLookup(d, tDivisions = 36, precision = 1) {
         let lengthObj = {
             lengths: [],
             points: [],
+            index: i,
             total: 0,
             type: type
         };
