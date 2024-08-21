@@ -233,28 +233,25 @@ function getEllipseLength(rx, ry) {
 }
 
 
-function getPointOnEllipse(rx, ry, cx, cy, deg, rotation = 0, precise = true) {
-    // Convert degrees to radians
-    let rad = (deg * Math.PI) / 180;
-    let rotRad = (rotation * Math.PI) / 180;
-    const cos = (val) => {
-        let c = precise ? Math.cos(val) : 1 - (val ** 2) / 2 + (val ** 4) / 24;
-        return c;
-    }
-    const sin = (val) => {
-        let s = precise ? Math.sin(val) : val - (val ** 3) / 6 + (val ** 5) / 120;
-        return s;
-    }
-    // Calculate the point on the ellipse without rotation
-    let x = cx + rx * cos(rad);
-    let y = cy + ry * sin(rad);
-    // Rotate the calculated point by the specified angle
-    let rotatedX = cx + (x - cx) * cos(rotRad) - (y - cy) * sin(rotRad);
-    let rotatedY = cy + (x - cx) * sin(rotRad) + (y - cy) * cos(rotRad);
-    return {
-        x: rotatedX,
-        y: rotatedY
-    };
+function getPointOnEllipse(rx, ry, cx, cy, deg, rotation = 0) {
+  
+  // Convert degrees to radians
+  let rad = (deg * Math.PI) / 180;
+  rad = Math.atan(Math.tan(rad)*rx/ry);
+
+  let rotRad = (rotation * Math.PI) / 180;
+  let { cos, sin } = Math;
+
+  // Calculate the point on the ellipse without rotation
+  let x = cx + rx * cos(rad);
+  let y = cy + ry * sin(rad);
+  // Rotate the calculated point by the specified angle
+  let rotatedX = cx + (x - cx) * cos(rotRad) - (y - cy) * sin(rotRad);
+  let rotatedY = cy + (x - cx) * sin(rotRad) + (y - cy) * cos(rotRad);
+  return {
+    x: rotatedX,
+    y: rotatedY
+  };
 }
 
 
