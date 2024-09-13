@@ -117,106 +117,111 @@ function getPolyLineLength(points) {
   * based on @cuixiping;
   * https://stackoverflow.com/questions/9017100/calculate-center-of-svg-arc/12329083#12329083
   */
-function svgArcToCenterParam(x1, y1, rx, ry, degree, fA, fS, x2, y2) {
-    const radian = (ux, uy, vx, vy) => {
-        let dot = ux * vx + uy * vy;
-        let mod = Math.sqrt((ux * ux + uy * uy) * (vx * vx + vy * vy));
-        let rad = Math.acos(dot / mod);
-        if (ux * vy - uy * vx < 0) {
-            rad = -rad;
-        }
-        return rad;
-    };
-    // degree to radian
-    let phi = (degree * Math.PI) / 180;
-    let cx, cy, startAngle, deltaAngle, endAngle;
-    let PI = Math.PI;
-    let PIx2 = PI * 2;
-    if (rx < 0) {
-        rx = -rx;
-    }
-    if (ry < 0) {
-        ry = -ry;
-    }
-    if (rx == 0 || ry == 0) {
-        // invalid arguments
-        throw Error("rx and ry can not be 0");
-    }
-    let s_phi = Math.sin(phi);
-    let c_phi = Math.cos(phi);
-    let hd_x = (x1 - x2) / 2; // half diff of x
-    let hd_y = (y1 - y2) / 2; // half diff of y
-    let hs_x = (x1 + x2) / 2; // half sum of x
-    let hs_y = (y1 + y2) / 2; // half sum of y
-    // F6.5.1
-    let x1_ = c_phi * hd_x + s_phi * hd_y;
-    let y1_ = c_phi * hd_y - s_phi * hd_x;
-    // F.6.6 Correction of out-of-range radii
-    //   Step 3: Ensure radii are large enough
-    let lambda = (x1_ * x1_) / (rx * rx) + (y1_ * y1_) / (ry * ry);
-    if (lambda > 1) {
-        rx = rx * Math.sqrt(lambda);
-        ry = ry * Math.sqrt(lambda);
-    }
-    let rxry = rx * ry;
-    let rxy1_ = rx * y1_;
-    let ryx1_ = ry * x1_;
-    let sum_of_sq = rxy1_ * rxy1_ + ryx1_ * ryx1_; // sum of square
-    if (!sum_of_sq) {
-        throw Error("start point can not be same as end point");
-    }
-    let coe = Math.sqrt(Math.abs((rxry * rxry - sum_of_sq) / sum_of_sq));
-    if (fA == fS) {
-        coe = -coe;
-    }
-    // F6.5.2
-    let cx_ = (coe * rxy1_) / ry;
-    let cy_ = (-coe * ryx1_) / rx;
-    // F6.5.3
-    cx = c_phi * cx_ - s_phi * cy_ + hs_x;
-    cy = s_phi * cx_ + c_phi * cy_ + hs_y;
-    let xcr1 = (x1_ - cx_) / rx;
-    let xcr2 = (x1_ + cx_) / rx;
-    let ycr1 = (y1_ - cy_) / ry;
-    let ycr2 = (y1_ + cy_) / ry;
-    // F6.5.5
-    startAngle = radian(1.0, 0, xcr1, ycr1);
-    // F6.5.6
-    deltaAngle = radian(xcr1, ycr1, -xcr2, -ycr2);
-    while (deltaAngle > PIx2) {
-        deltaAngle -= PIx2;
-    }
-    while (deltaAngle < 0) {
-        deltaAngle += PIx2;
-    }
-    if (fS == false || fS == 0) {
-        deltaAngle -= PIx2;
-    }
-    endAngle = startAngle + deltaAngle;
-    while (endAngle > PIx2) {
-        endAngle -= PIx2;
-    }
-    while (endAngle < 0) {
-        endAngle += PIx2;
-    }
-    let toDegFactor = 180 / PI;
-    let outputObj = {
-        pt: {
-            x: cx,
-            y: cy
-        },
-        rx: rx,
-        ry: ry,
-        startAngle_deg: startAngle * toDegFactor,
-        startAngle: startAngle,
-        deltaAngle_deg: deltaAngle * toDegFactor,
-        deltaAngle: deltaAngle,
-        endAngle_deg: endAngle * toDegFactor,
-        endAngle: endAngle,
-        clockwise: fS == true || fS == 1
-    };
-    return outputObj;
+function svgArcToCenterParam(x1, y1, rx, ry, xAxisRotation, largeArc, sweep, x2, y2) {
+  
+  let {cos, sin, atan2, sqrt, abs, min, max, PI} = Math;
+
+  // helper for angle calculation
+  const getAngle = (cx, cy, x, y) => {
+    return atan2(y - cy, x - cx);
+  };
+
+  // make sure rx, ry are positive
+  rx = abs(rx);
+  ry = abs(ry);
+
+  /**
+   * if rx===ry x-axis rotation is ignored
+   * otherwise convert degrees to radians
+   */
+  let phi = rx === ry ? 0 : (xAxisRotation * PI) / 180;
+  let cx, cy
+
+  // create data object
+  let arcData = {
+    cx: 0,
+    cy: 0,
+    // rx/ry values may be deceptive in arc commands
+    rx: rx,
+    ry: ry,
+    startAngle: 0,
+    endAngle: 0,
+    deltaAngle: 0,
+    clockwise: sweep
+  };
+
+
+  if (rx == 0 || ry == 0) {
+    // invalid arguments
+    throw Error("rx and ry can not be 0");
+  }
+  
+
+  let s_phi = !phi ? 0 : sin(phi);
+  let c_phi = !phi ? 1 : cos(phi);
+
+  let hd_x = (x1 - x2) / 2; 
+  let hd_y = (y1 - y2) / 2; 
+  let hs_x = (x1 + x2) / 2; 
+  let hs_y = (y1 + y2) / 2;
+
+  // F6.5.1
+  let x1_ = !phi ? hd_x : c_phi * hd_x + s_phi * hd_y;
+  let y1_ = !phi ? hd_y : c_phi * hd_y - s_phi * hd_x;
+
+  // F.6.6 Correction of out-of-range radii
+  //   Step 3: Ensure radii are large enough
+  let lambda = (x1_ * x1_) / (rx * rx) + (y1_ * y1_) / (ry * ry);
+  if (lambda > 1) {
+    rx = rx * sqrt(lambda);
+    ry = ry * sqrt(lambda);
+
+    // save real rx/ry
+    arcData.rx = rx;
+    arcData.ry = ry;
+  }
+
+  let rxry = rx * ry;
+  let rxy1_ = rx * y1_;
+  let ryx1_ = ry * x1_;
+  let sum_of_sq = rxy1_ * rxy1_ + ryx1_ * ryx1_; // sum of square
+  if (!sum_of_sq) {
+    throw Error("start point can not be same as end point");
+  }
+  let coe = sqrt(abs((rxry * rxry - sum_of_sq) / sum_of_sq));
+  if (largeArc == sweep) {
+    coe = -coe;
+  }
+
+  // F6.5.2
+  let cx_ = (coe * rxy1_) / ry;
+  let cy_ = (-coe * ryx1_) / rx;
+
+  /** F6.5.3
+   * center point of ellipse
+   */
+  cx = !phi ? hs_x + cx_ : c_phi * cx_ - s_phi * cy_ + hs_x;
+  cy = !phi ? hs_y + cy_ : s_phi * cx_ + c_phi * cy_ + hs_y;
+  arcData.cy = cy;
+  arcData.cx = cx;
+
+  /** F6.5.5
+   * calculate angles between center point and
+   * commands starting and final on path point
+   */
+  let startAngle = getAngle(cx, cy, x1, y1);
+  let endAngle = getAngle(cx, cy, x2, y2);
+  endAngle = (endAngle<0 && startAngle>0 && !largeArc) || (endAngle<startAngle && largeArc)  ? endAngle+PI*2 : endAngle;
+  let deltaAngle = endAngle - startAngle
+
+  //let deltaAngle = largeArc ? 360 + 
+  arcData.startAngle = startAngle;
+  arcData.endAngle = endAngle;
+  arcData.deltaAngle = deltaAngle;
+  
+  return arcData;
 }
+
 /**
  * Ramanujan approximation
  * based on: https://www.mathsisfun.com/geometry/ellipse-perimeter.html#tool
